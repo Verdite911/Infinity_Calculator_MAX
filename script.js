@@ -626,16 +626,67 @@
   }
 
   function convertUnitsNow(){
-    const t=unitInput.value.trim();if(!t){unitResult.textContent="Enter a conversion.";return;}
-    try{
-      unitResult.textContent=math.evaluate(t).toString();
-    }catch{
-      try{
-        const m=t.match(/^(.+?)\s+to\s+(.+)$/i);if(!m)throw new Error();
-        unitResult.textContent=math.unit(math.evaluate(m[1])).to(m[2]).toString();
-      }catch{unitResult.textContent="Could not convert that unit expression.";}
-    }
+  const raw=unitInput.value.trim();
+
+  if(!raw){
+    unitResult.textContent="Enter a conversion.";
+    return;
   }
+
+  // Make common unit names compatible with math.js.
+  const normalized=raw
+    .replace(/\bmph\b/gi,"mi/h")
+    .replace(/\bkmph\b/gi,"km/h")
+    .replace(/\bkph\b/gi,"km/h")
+    .replace(/\bmi\/hr\b/gi,"mi/h")
+    .replace(/\bkm\/hr\b/gi,"km/h")
+    .replace(/\bmeters?\b/gi,"m")
+    .replace(/\bkilometers?\b/gi,"km")
+    .replace(/\bmiles?\b/gi,"mi")
+    .replace(/\bhours?\b/gi,"h")
+    .replace(/\bseconds?\b/gi,"s");
+
+  try{
+    const direct=math.evaluate(normalized);
+    unitResult.textContent=direct.toString();
+    return;
+  }catch{}
+
+  try{
+    const m=normalized.match(/^(.+?)\s+to\s+(.+)$/i);
+
+    if(!m)throw new Error();
+
+    const value=math.evaluate(m[1]);
+    const result=math.unit(value).to(m[2]);
+
+    unitResult.textContent=result.toString();
+  }catch{
+    // Reliable fallback specifically for speed conversions.
+    const speed=normalized.match(
+      /^\s*([-+]?\d*\.?\d+)\s*(mi\/h|km\/h)\s+to\s+(mi\/h|km\/h)\s*$/i
+    );
+
+    if(speed){
+      const value=Number(speed[1]);
+      const from=speed[2].toLowerCase();
+      const to=speed[3].toLowerCase();
+
+      let result=value;
+
+      if(from==="mi/h" && to==="km/h"){
+        result=value*1.609344;
+      }else if(from==="km/h" && to==="mi/h"){
+        result=value/1.609344;
+      }
+
+      unitResult.textContent=`${result.toFixed(6)} ${to}`;
+      return;
+    }
+
+    unitResult.textContent="Could not convert that unit expression.";
+  }
+}
 
   function graphPixelToData(clientX,clientY){
   const graph=document.getElementById("graph");
