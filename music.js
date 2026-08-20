@@ -1,6 +1,8 @@
 /* ==========================================================
-   CalcMAX Relaxing Concentration Music
-   Web Audio API — no external audio files required.
+   CalcMAX Focus Music
+
+   musicPlay = 1  -> music ON
+   musicPlay = 0  -> music OFF
    ========================================================== */
 
 (() => {
@@ -14,7 +16,6 @@
   let timer = null;
   let chordIndex = 0;
 
-  // Gentle concentration-friendly chord progression
   const chords = [
     [261.63, 329.63, 392.00, 493.88], // Cmaj7
     [220.00, 261.63, 329.63, 392.00], // Am7
@@ -75,14 +76,15 @@
   }
 
   function playChord() {
-    if (!audioContext || !running) return;
+    if (!audioContext || !running || window.musicPlay !== 1) {
+      return;
+    }
 
     const now = audioContext.currentTime;
     const chord = chords[chordIndex % chords.length];
 
     chordIndex++;
 
-    // Main soft chord
     chord.forEach((frequency, index) => {
       playTone(
         frequency,
@@ -93,7 +95,6 @@
       );
     });
 
-    // Very quiet high harmonic
     playTone(
       chord[2] * 2,
       now + 1.2,
@@ -105,19 +106,28 @@
     timer = setTimeout(playChord, 4200);
   }
 
-  async function start() {
+  async function startMusic() {
+    if (window.musicPlay !== 1) return;
+
     setupAudio();
 
-    if (audioContext.state === "suspended") {
-      await audioContext.resume();
+    try {
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+    } catch (error) {
+      console.warn("Audio could not start:", error);
+      return;
     }
+
+    if (running) return;
 
     running = true;
     playChord();
     updateButton();
   }
 
-  async function stop() {
+  function stopMusic() {
     running = false;
 
     if (timer) {
@@ -126,14 +136,6 @@
     }
 
     updateButton();
-  }
-
-  async function toggle() {
-    if (running) {
-      await stop();
-    } else {
-      await start();
-    }
   }
 
   function updateButton() {
@@ -148,22 +150,43 @@
     button.classList.toggle("active", running);
   }
 
-  // Public API
+  function checkMusicPlay() {
+    if (window.musicPlay === 1) {
+      startMusic();
+    } else {
+      stopMusic();
+    }
+  }
+
   window.CalcMaxFocusMusic = {
-    start,
-    stop,
-    toggle,
+    start: startMusic,
+    stop: stopMusic,
+
+    toggle: () => {
+      window.musicPlay =
+        window.musicPlay === 1 ? 0 : 1;
+
+      checkMusicPlay();
+    },
+
+    check: checkMusicPlay,
+
     isPlaying: () => running
   };
 
-  // Automatically connect the button if it exists.
   document.addEventListener("DOMContentLoaded", () => {
     const button = document.getElementById("musicToggle");
 
     if (button) {
-      button.addEventListener("click", toggle);
-      updateButton();
+      button.addEventListener("click", () => {
+        window.musicPlay =
+          window.musicPlay === 1 ? 0 : 1;
+
+        checkMusicPlay();
+      });
     }
+
+    checkMusicPlay();
   });
 
 })();
