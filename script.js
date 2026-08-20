@@ -1,4 +1,4 @@
-let musicPlay = 1;
+
 (() => {
   const COLORS = ["#7c5cff","#27d2ff","#ff5c8a","#2fd8a0","#ffb84d","#d879ff","#63e6ff","#ff7a59","#9de35a","#ffde59"];
   function randomColor(){
