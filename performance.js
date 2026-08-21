@@ -1,12 +1,12 @@
 /* ==========================================================
-   CalcMAX Performance MAX
+   CalcMAX Performance MAX — Smooth Scroll + Live Variables
 
-   Load this BEFORE your main script.js.
-
-   Main feature:
-   FAST-FIRST-GRAPH
-   Removes avoidable Plotly animation/transition delays,
-   batches resize work, and keeps graph updates lightweight.
+   Main goals:
+   - Keep scrolling smooth while a variable is animating
+   - Coalesce repeated graph redraws
+   - Reduce redraw pressure during scroll
+   - Remove Plotly transitions
+   - Restore normal rendering after scrolling stops
    ========================================================== */
 
 (() => {
@@ -17,7 +17,15 @@
   const state = {
     frame: 0,
     resizeTimer: 0,
+    scrollTimer: 0,
+
+    scrolling: false,
+    lastDraw: 0,
     lastResize: 0,
+
+    normalFPS: 60,
+    scrollFPS: 30,
+
     patched: false
   };
 
@@ -45,25 +53,112 @@
     }
   };
 
-  // Run expensive work at most once per animation frame.
-  function schedule(callback) {
+  // ----------------------------------------------------------
+  // Detect scrolling
+  // ----------------------------------------------------------
+
+  function markScrolling() {
+    state.scrolling = true;
+
+    clearTimeout(state.scrollTimer);
+
+    state.scrollTimer = setTimeout(() => {
+      state.scrolling = false;
+
+      // One final redraw after scrolling stops.
+      if (window.CalcMaxPerformance._pendingCallback) {
+        const callback =
+          window.CalcMaxPerformance._pendingCallback;
+
+        window.CalcMaxPerformance._pendingCallback = null;
+
+        requestAnimationFrame(() => {
+          try {
+            callback();
+          } catch (error) {
+            console.error(
+              "CalcMAX final redraw failed:",
+              error
+            );
+          }
+        });
+      }
+    }, 140);
+  }
+
+  // Passive listeners let the browser scroll immediately.
+  window.addEventListener(
+    "scroll",
+    markScrolling,
+    { passive: true }
+  );
+
+  window.addEventListener(
+    "wheel",
+    markScrolling,
+    { passive: true }
+  );
+
+  window.addEventListener(
+    "touchmove",
+    markScrolling,
+    { passive: true }
+  );
+
+  // ----------------------------------------------------------
+  // Smart redraw scheduler
+  // ----------------------------------------------------------
+
+  function requestDraw(callback) {
+    if (typeof callback !== "function") return;
+
+    window.CalcMaxPerformance._pendingCallback =
+      callback;
+
+    const now = performance.now();
+
+    // While scrolling, allow fewer expensive redraws.
+    const targetFPS = state.scrolling
+      ? state.scrollFPS
+      : state.normalFPS;
+
+    const minimumInterval = 1000 / targetFPS;
+
+    if (
+      now - state.lastDraw <
+      minimumInterval
+    ) {
+      return;
+    }
+
     if (state.frame) return;
 
     state.frame = requestAnimationFrame(() => {
       state.frame = 0;
+      state.lastDraw = performance.now();
+
+      const draw =
+        window.CalcMaxPerformance._pendingCallback;
+
+      window.CalcMaxPerformance._pendingCallback = null;
+
+      if (!draw) return;
 
       try {
-        callback();
+        draw();
       } catch (error) {
         console.error(
-          "CalcMAX performance error:",
+          "CalcMAX performance draw failed:",
           error
         );
       }
     });
   }
 
-  // Remove unnecessary Plotly animation and transition delays.
+  // ----------------------------------------------------------
+  // Plotly optimization
+  // ----------------------------------------------------------
+
   function patchPlotly() {
     if (state.patched || !window.Plotly) {
       return;
@@ -71,9 +166,10 @@
 
     const P = window.Plotly;
 
-    // Speed up initial graph creation.
+    // Initial graph creation
     if (typeof P.newPlot === "function") {
-      const originalNewPlot = P.newPlot.bind(P);
+      const originalNewPlot =
+        P.newPlot.bind(P);
 
       P.newPlot = function(
         graph,
@@ -100,9 +196,10 @@
       };
     }
 
-    // Speed up graph updates.
+    // Fast graph updates
     if (typeof P.react === "function") {
-      const originalReact = P.react.bind(P);
+      const originalReact =
+        P.react.bind(P);
 
       P.react = function(
         graph,
@@ -129,9 +226,10 @@
       };
     }
 
-    // Remove Plotly animation delays.
+    // Remove animation transitions
     if (typeof P.animate === "function") {
-      const originalAnimate = P.animate.bind(P);
+      const originalAnimate =
+        P.animate.bind(P);
 
       P.animate = function(
         graph,
@@ -155,7 +253,10 @@
     state.patched = true;
   }
 
-  // Resize the graph without repeatedly hammering Plotly.
+  // ----------------------------------------------------------
+  // Resize optimization
+  // ----------------------------------------------------------
+
   function resizeGraph() {
     const graph =
       document.getElementById("graph");
@@ -164,87 +265,82 @@
       graph &&
       window.Plotly &&
       Plotly.Plots &&
-      typeof Plotly.Plots.resize === "function"
+      typeof Plotly.Plots.resize ===
+        "function"
     ) {
       Plotly.Plots.resize(graph);
     }
   }
 
-  // Throttle resize events.
   function scheduleResize() {
-    if (state.resizeTimer) {
-      return;
-    }
-
-    const now = performance.now();
-
-    const delay = Math.max(
-      0,
-      100 - (now - state.lastResize)
-    );
+    clearTimeout(state.resizeTimer);
 
     state.resizeTimer = setTimeout(() => {
       state.resizeTimer = 0;
-      state.lastResize = performance.now();
 
-      schedule(resizeGraph);
-    }, delay);
+      requestAnimationFrame(() => {
+        resizeGraph();
+      });
+    }, 100);
   }
 
-  /*
-   * Public performance API.
-   *
-   * You can use:
-   *
-   * CalcMaxPerformance.requestDraw(() => {
-   *   draw();
-   * });
-   *
-   * Repeated calls within the same frame
-   * collapse into one draw.
-   */
+  window.addEventListener(
+    "resize",
+    scheduleResize,
+    { passive: true }
+  );
+
+  // ----------------------------------------------------------
+  // Adaptive sampling helper
+  // ----------------------------------------------------------
+
+  function smartSampleCount(base = 1200) {
+    const width =
+      window.innerWidth || 1200;
+
+    // Don't calculate thousands of unnecessary points
+    // when the visible graph is only a few hundred pixels.
+    const maximum =
+      Math.max(400, Math.round(width * 1.5));
+
+    return Math.min(base, maximum);
+  }
+
+  // ----------------------------------------------------------
+  // Public API
+  // ----------------------------------------------------------
+
   window.CalcMaxPerformance = {
-    version: "MAX-1.0",
+    version: "MAX-2.0",
 
     fastMode: true,
 
-    requestDraw(callback) {
-      if (typeof callback === "function") {
-        schedule(callback);
-      }
-    },
+    requestDraw,
+
+    schedule: requestDraw,
 
     patchPlotly,
 
     resize: resizeGraph,
 
-    /*
-     * Pick a sensible graph sample count
-     * based on the user's screen width.
-     */
-    smartSampleCount(base = 1200) {
-      const width = Math.max(
-        320,
-        window.innerWidth || 1200
-      );
+    smartSampleCount,
 
-      return Math.max(
-        300,
-        Math.min(
-          base,
-          Math.round(width * 1.8)
-        )
-      );
-    }
+    isScrolling: () =>
+      state.scrolling,
+
+    getFrameRate: () =>
+      state.scrolling
+        ? state.scrollFPS
+        : state.normalFPS,
+
+    // Internal pending callback
+    _pendingCallback: null
   };
 
-  // Patch Plotly immediately.
+  // Try immediately.
   patchPlotly();
 
-  /*
-   * Plotly may load slightly after performance.js.
-   * Keep trying briefly until it becomes available.
-   */
+  // Plotly may load after this file.
   if (!state.patched) {
     const retry = setInterval(() => {
       patchPlotly();
@@ -258,14 +354,5 @@
       clearInterval(retry);
     }, 5000);
   }
-
-  // Throttled graph resizing.
-  window.addEventListener(
-    "resize",
-    scheduleResize,
-    {
-      passive: true
-    }
-  );
 
 })();
