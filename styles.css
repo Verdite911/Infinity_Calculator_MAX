@@ -285,7 +285,7 @@
     font-weight:800;
   }
   .key:hover{background:#20293a}
-  .key.op{color:#bdaeff}
+.key.op{color:#ffffff}
   .key.eq{background:var(--accent);border-color:transparent}
   .key.wide{grid-column:span 2}
 
