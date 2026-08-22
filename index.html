@@ -1210,7 +1210,7 @@
     branchFunctions.innerHTML="";
     getBranchOperations(currentBranch).forEach(op=>{
       const btn=document.createElement("button");
-      btn.className="key"+(op.action==="nthroot"?" op":"");
+      btn.className="key";
       btn.textContent=op.label;
       btn.title=op.desc?`${op.label}: ${op.desc}`:`${currentBranch}: ${op.label}`;
       btn.addEventListener("click",()=>{
