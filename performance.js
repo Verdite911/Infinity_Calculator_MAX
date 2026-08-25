@@ -1,16 +1,10 @@
 /* ==========================================================
-   CalcMAX Performance MAX — Smooth Scroll + Live Variables
-   + SMART GRAPH CLEANUP
+   CalcMAX Performance MAX
+   Smooth scrolling + fast graph rendering
 
-   Delete one expression:
-     -> keep all other graphs
-     -> redraw remaining expressions
-
-   Delete the last expression:
-     -> completely remove graph
-
-   Clear all:
-     -> completely remove graph
+   IMPORTANT:
+   This file does NOT control expression deletion.
+   CalcMAX's own delete/clear code remains in charge of that.
    ========================================================== */
 
 (() => {
@@ -22,18 +16,12 @@
     frame: 0,
     resizeTimer: 0,
     scrollTimer: 0,
-
     scrolling: false,
-
     lastDraw: 0,
     lastResize: 0,
-
     normalFPS: 60,
     scrollFPS: 30,
-
     patched: false,
-    cleanupInstalled: false,
-
     pendingCallback: null
   };
 
@@ -51,9 +39,7 @@
     transition: {
       duration: 0
     },
-
     uirevision: "calcmax",
-
     dragmode: "pan"
   };
 
@@ -61,7 +47,6 @@
     transition: {
       duration: 0
     },
-
     frame: {
       duration: 0,
       redraw: false
@@ -81,9 +66,7 @@
       state.scrolling = false;
 
       if (state.pendingCallback) {
-        const callback =
-          state.pendingCallback;
-
+        const callback = state.pendingCallback;
         state.pendingCallback = null;
 
         requestAnimationFrame(() => {
@@ -91,7 +74,7 @@
             callback();
           } catch (error) {
             console.error(
-              "CalcMAX final redraw failed:",
+              "CalcMAX redraw error:",
               error
             );
           }
@@ -119,7 +102,7 @@
   );
 
   /* ==========================================================
-     SMART REDRAW
+     SMART DRAW SCHEDULER
      ========================================================== */
 
   function requestDraw(callback) {
@@ -131,12 +114,11 @@
 
     const now = performance.now();
 
-    const targetFPS = state.scrolling
+    const fps = state.scrolling
       ? state.scrollFPS
       : state.normalFPS;
 
-    const minimumInterval =
-      1000 / targetFPS;
+    const minimumInterval = 1000 / fps;
 
     if (
       now - state.lastDraw <
@@ -153,9 +135,7 @@
       state.frame = 0;
       state.lastDraw = performance.now();
 
-      const draw =
-        state.pendingCallback;
-
+      const draw = state.pendingCallback;
       state.pendingCallback = null;
 
       if (!draw) {
@@ -174,341 +154,10 @@
   }
 
   /* ==========================================================
-     GET EXPRESSION COUNT
-     ========================================================== */
-
-  function getExpressionCount() {
-    const container =
-      document.getElementById("expressions");
-
-    if (!container) {
-      return 0;
-    }
-
-    return container.querySelectorAll(".expr").length;
-  }
-
-  /* ==========================================================
-     COMPLETELY DELETE THE GRAPH
-     
-     IMPORTANT:
-     This is ONLY used when everything was cleared.
-     It is NOT used when deleting one expression.
-     ========================================================== */
-
-  function hardClearGraph() {
-    const graph =
-      document.getElementById("graph");
-
-    if (!graph) {
-      return;
-    }
-
-    /* Cancel queued redraw */
-    if (state.frame) {
-      cancelAnimationFrame(state.frame);
-      state.frame = 0;
-    }
-
-    state.pendingCallback = null;
-
-    /* Purge Plotly completely */
-    try {
-      if (
-        window.Plotly &&
-        typeof Plotly.purge === "function"
-      ) {
-        Plotly.purge(graph);
-      }
-    } catch (error) {
-      console.warn(
-        "CalcMAX Plotly purge failed:",
-        error
-      );
-    }
-
-    /* Remove leftover graph DOM */
-    try {
-      graph.innerHTML = "";
-    } catch {}
-
-    /* Remove Plotly references */
-    try {
-      delete graph.data;
-    } catch {}
-
-    try {
-      delete graph.layout;
-    } catch {}
-
-    try {
-      delete graph._fullData;
-    } catch {}
-
-    try {
-      delete graph._fullLayout;
-    } catch {}
-
-    try {
-      delete graph._transitionData;
-    } catch {}
-  }
-
-  /* ==========================================================
-     REDRAW REMAINING EXPRESSIONS
-     ========================================================== */
-
-  function redrawRemainingExpressions() {
-    /*
-      IMPORTANT:
-      We do NOT purge Plotly here.
-
-      CalcMAX's own draw system should rebuild the graph
-      from the expressions that still exist.
-    */
-
-    requestAnimationFrame(() => {
-
-      try {
-        if (
-          typeof window.queueDraw ===
-          "function"
-        ) {
-          window.queueDraw();
-          return;
-        }
-      } catch {}
-
-      try {
-        if (
-          typeof window.draw ===
-          "function"
-        ) {
-          window.draw();
-          return;
-        }
-      } catch {}
-
-      /*
-        Fallback: dispatch an input event so the calculator's
-        normal reactive system redraws.
-      */
-
-      try {
-        const expressions =
-          document.getElementById(
-            "expressions"
-          );
-
-        const input =
-          expressions?.querySelector(
-            ".expr input[type='text']"
-          );
-
-        if (input) {
-          input.dispatchEvent(
-            new Event("input", {
-              bubbles: true
-            })
-          );
-        }
-      } catch {}
-    });
-  }
-
-  /* ==========================================================
-     DELETE / CLEAR HANDLING
-     ========================================================== */
-
-  function installCleanupHandlers() {
-    if (state.cleanupInstalled) {
-      return;
-    }
-
-    state.cleanupInstalled = true;
-
-    /* --------------------------------------------------------
-       DELETE ONE EXPRESSION
-       -------------------------------------------------------- */
-
-    document.addEventListener(
-      "click",
-      event => {
-
-        const target =
-          event.target;
-
-        if (!target) {
-          return;
-        }
-
-        const deleteButton =
-          target.closest?.(
-            ".delete, .row-action.delete, [data-action='delete']"
-          );
-
-        if (deleteButton) {
-
-          /*
-            Let CalcMAX delete the expression first.
-          */
-
-          setTimeout(() => {
-
-            const count =
-              getExpressionCount();
-
-            if (count === 0) {
-
-              /*
-                There is nothing left.
-                Completely remove the graph.
-              */
-
-              hardClearGraph();
-
-            } else {
-
-              /*
-                Other expressions still exist.
-
-                DO NOT purge the graph.
-
-                Just ask CalcMAX to redraw using
-                the remaining expressions.
-              */
-
-              redrawRemainingExpressions();
-            }
-
-          }, 0);
-
-          return;
-        }
-
-        /* ----------------------------------------------------
-           CLEAR ALL EXPRESSIONS
-           ---------------------------------------------------- */
-
-        const clearButton =
-          target.closest?.(
-            "#clearBtn, [data-action='clear'], .clear-btn"
-          );
-
-        if (clearButton) {
-
-          setTimeout(() => {
-
-            const count =
-              getExpressionCount();
-
-            if (count === 0) {
-
-              /*
-                Everything was cleared.
-                Now completely destroy Plotly.
-              */
-
-              hardClearGraph();
-
-            } else {
-
-              /*
-                Some CalcMAX versions keep a blank row.
-                Don't destroy the graph if expressions
-                are still present.
-              */
-
-              redrawRemainingExpressions();
-            }
-
-          }, 0);
-
-          return;
-        }
-
-      },
-      true
-    );
-
-    /* --------------------------------------------------------
-       WATCH EXPRESSION ROW CHANGES
-       -------------------------------------------------------- */
-
-    const expressions =
-      document.getElementById(
-        "expressions"
-      );
-
-    if (!expressions) {
-      return;
-    }
-
-    let previousCount =
-      expressions.querySelectorAll(
-        ".expr"
-      ).length;
-
-    const observer =
-      new MutationObserver(() => {
-
-        const currentCount =
-          expressions.querySelectorAll(
-            ".expr"
-          ).length;
-
-        /*
-          Expression removed.
-        */
-
-        if (
-          currentCount <
-          previousCount
-        ) {
-
-          setTimeout(() => {
-
-            if (currentCount === 0) {
-
-              /*
-                Last expression was deleted.
-                Completely remove graph.
-              */
-
-              hardClearGraph();
-
-            } else {
-
-              /*
-                Some expressions remain.
-                Keep the graph alive and redraw.
-              */
-
-              redrawRemainingExpressions();
-            }
-
-          }, 0);
-        }
-
-        previousCount =
-          currentCount;
-      });
-
-    observer.observe(
-      expressions,
-      {
-        childList: true,
-        subtree: true
-      }
-    );
-  }
-
-  /* ==========================================================
      PLOTLY OPTIMIZATION
      ========================================================== */
 
   function patchPlotly() {
-
     if (
       state.patched ||
       !window.Plotly
@@ -516,18 +165,11 @@
       return;
     }
 
-    const P =
-      window.Plotly;
+    const P = window.Plotly;
 
-    /* --------------------------------------------------------
-       newPlot
-       -------------------------------------------------------- */
+    /* ---------- newPlot ---------- */
 
-    if (
-      typeof P.newPlot ===
-      "function"
-    ) {
-
+    if (typeof P.newPlot === "function") {
       const originalNewPlot =
         P.newPlot.bind(P);
 
@@ -538,7 +180,6 @@
         config,
         ...rest
       ) {
-
         return originalNewPlot(
           graph,
           data,
@@ -557,15 +198,9 @@
       };
     }
 
-    /* --------------------------------------------------------
-       react
-       -------------------------------------------------------- */
+    /* ---------- react ---------- */
 
-    if (
-      typeof P.react ===
-      "function"
-    ) {
-
+    if (typeof P.react === "function") {
       const originalReact =
         P.react.bind(P);
 
@@ -576,7 +211,6 @@
         config,
         ...rest
       ) {
-
         return originalReact(
           graph,
           data,
@@ -595,15 +229,9 @@
       };
     }
 
-    /* --------------------------------------------------------
-       animate
-       -------------------------------------------------------- */
+    /* ---------- animate ---------- */
 
-    if (
-      typeof P.animate ===
-      "function"
-    ) {
-
+    if (typeof P.animate === "function") {
       const originalAnimate =
         P.animate.bind(P);
 
@@ -613,7 +241,6 @@
         options,
         ...rest
       ) {
-
         return originalAnimate(
           graph,
           animation,
@@ -635,11 +262,8 @@
      ========================================================== */
 
   function resizeGraph() {
-
     const graph =
-      document.getElementById(
-        "graph"
-      );
+      document.getElementById("graph");
 
     if (
       graph &&
@@ -648,57 +272,40 @@
       typeof Plotly.Plots.resize ===
         "function"
     ) {
-
-      Plotly.Plots.resize(
-        graph
-      );
+      Plotly.Plots.resize(graph);
     }
   }
 
   function scheduleResize() {
+    clearTimeout(state.resizeTimer);
 
-    clearTimeout(
-      state.resizeTimer
-    );
+    state.resizeTimer = setTimeout(() => {
+      state.resizeTimer = 0;
 
-    state.resizeTimer =
-      setTimeout(() => {
-
-        state.resizeTimer = 0;
-
-        requestAnimationFrame(
-          resizeGraph
-        );
-
-      }, 100);
+      requestAnimationFrame(() => {
+        resizeGraph();
+      });
+    }, 100);
   }
 
   window.addEventListener(
     "resize",
     scheduleResize,
-    {
-      passive: true
-    }
+    { passive: true }
   );
 
   /* ==========================================================
      SMART SAMPLE COUNT
      ========================================================== */
 
-  function smartSampleCount(
-    base = 1200
-  ) {
-
+  function smartSampleCount(base = 1200) {
     const width =
       window.innerWidth || 1200;
 
-    const maximum =
-      Math.max(
-        400,
-        Math.round(
-          width * 1.5
-        )
-      );
+    const maximum = Math.max(
+      400,
+      Math.round(width * 1.5)
+    );
 
     return Math.min(
       base,
@@ -711,26 +318,17 @@
      ========================================================== */
 
   window.CalcMaxPerformance = {
-
-    version: "MAX-5.0",
+    version: "MAX-CLEAN",
 
     fastMode: true,
 
     requestDraw,
-
     schedule: requestDraw,
 
     patchPlotly,
-
     resize: resizeGraph,
 
     smartSampleCount,
-
-    clearGraph:
-      hardClearGraph,
-
-    redraw:
-      redrawRemainingExpressions,
 
     isScrolling: () =>
       state.scrolling,
@@ -740,46 +338,32 @@
         ? state.scrollFPS
         : state.normalFPS,
 
-    _pendingCallback:
-      null
+    _pendingCallback: null
   };
 
   /* ==========================================================
-     STARTUP
+     START
      ========================================================== */
 
   patchPlotly();
 
   /*
-    Plotly might load after performance.js.
-  */
+   * Plotly may load after performance.js.
+   * Retry briefly.
+   */
 
   if (!state.patched) {
+    const retry = setInterval(() => {
+      patchPlotly();
 
-    const retry =
-      setInterval(() => {
-
-        patchPlotly();
-
-        if (state.patched) {
-          clearInterval(
-            retry
-          );
-        }
-
-      }, 50);
+      if (state.patched) {
+        clearInterval(retry);
+      }
+    }, 50);
 
     setTimeout(() => {
-      clearInterval(
-        retry
-      );
+      clearInterval(retry);
     }, 5000);
   }
-
-  /*
-    Install smart cleanup.
-  */
-
-  installCleanupHandlers();
 
 })();
