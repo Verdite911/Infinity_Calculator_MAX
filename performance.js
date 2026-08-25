@@ -1,5 +1,6 @@
 /* ==========================================================
    CalcMAX Performance MAX — Smooth Scroll + Live Variables
+   + HARD GRAPH CLEAR
 
    Main goals:
    - Keep scrolling smooth while a variable is animating
@@ -7,6 +8,7 @@
    - Reduce redraw pressure during scroll
    - Remove Plotly transitions
    - Restore normal rendering after scrolling stops
+   - HARD DELETE all graph traces when Clear is pressed
    ========================================================== */
 
 (() => {
@@ -20,6 +22,7 @@
     scrollTimer: 0,
 
     scrolling: false,
+
     lastDraw: 0,
     lastResize: 0,
 
@@ -39,7 +42,9 @@
     transition: {
       duration: 0
     },
+
     uirevision: "calcmax",
+
     dragmode: "pan"
   };
 
@@ -47,15 +52,16 @@
     transition: {
       duration: 0
     },
+
     frame: {
       duration: 0,
       redraw: false
     }
   };
 
-  // ----------------------------------------------------------
-  // Detect scrolling
-  // ----------------------------------------------------------
+  // ==========================================================
+  // SCROLL DETECTION
+  // ==========================================================
 
   function markScrolling() {
     state.scrolling = true;
@@ -65,16 +71,15 @@
     state.scrollTimer = setTimeout(() => {
       state.scrolling = false;
 
-      // One final redraw after scrolling stops.
-      if (window.CalcMaxPerformance._pendingCallback) {
-        const callback =
-          window.CalcMaxPerformance._pendingCallback;
+      const pending =
+        window.CalcMaxPerformance._pendingCallback;
 
+      if (pending) {
         window.CalcMaxPerformance._pendingCallback = null;
 
         requestAnimationFrame(() => {
           try {
-            callback();
+            pending();
           } catch (error) {
             console.error(
               "CalcMAX final redraw failed:",
@@ -86,43 +91,50 @@
     }, 140);
   }
 
-  // Passive listeners let the browser scroll immediately.
   window.addEventListener(
     "scroll",
     markScrolling,
-    { passive: true }
+    {
+      passive: true
+    }
   );
 
   window.addEventListener(
     "wheel",
     markScrolling,
-    { passive: true }
+    {
+      passive: true
+    }
   );
 
   window.addEventListener(
     "touchmove",
     markScrolling,
-    { passive: true }
+    {
+      passive: true
+    }
   );
 
-  // ----------------------------------------------------------
-  // Smart redraw scheduler
-  // ----------------------------------------------------------
+  // ==========================================================
+  // SMART REDRAW
+  // ==========================================================
 
   function requestDraw(callback) {
-    if (typeof callback !== "function") return;
+    if (typeof callback !== "function") {
+      return;
+    }
 
     window.CalcMaxPerformance._pendingCallback =
       callback;
 
     const now = performance.now();
 
-    // While scrolling, allow fewer expensive redraws.
     const targetFPS = state.scrolling
       ? state.scrollFPS
       : state.normalFPS;
 
-    const minimumInterval = 1000 / targetFPS;
+    const minimumInterval =
+      1000 / targetFPS;
 
     if (
       now - state.lastDraw <
@@ -131,18 +143,25 @@
       return;
     }
 
-    if (state.frame) return;
+    if (state.frame) {
+      return;
+    }
 
     state.frame = requestAnimationFrame(() => {
       state.frame = 0;
-      state.lastDraw = performance.now();
+
+      state.lastDraw =
+        performance.now();
 
       const draw =
         window.CalcMaxPerformance._pendingCallback;
 
-      window.CalcMaxPerformance._pendingCallback = null;
+      window.CalcMaxPerformance._pendingCallback =
+        null;
 
-      if (!draw) return;
+      if (!draw) {
+        return;
+      }
 
       try {
         draw();
@@ -155,19 +174,115 @@
     });
   }
 
-  // ----------------------------------------------------------
-  // Plotly optimization
-  // ----------------------------------------------------------
+  // ==========================================================
+  // HARD DELETE GRAPH
+  // ==========================================================
+
+  function hardClearGraph() {
+    const graph =
+      document.getElementById("graph");
+
+    if (!graph) {
+      return;
+    }
+
+    try {
+      // Completely destroy Plotly's graph state.
+      if (
+        window.Plotly &&
+        typeof Plotly.purge === "function"
+      ) {
+        Plotly.purge(graph);
+      }
+    } catch (error) {
+      console.warn(
+        "CalcMAX Plotly purge failed:",
+        error
+      );
+    }
+
+    // Remove any remaining Plotly-created DOM content.
+    try {
+      graph.innerHTML = "";
+    } catch {}
+
+    // Reset references that Plotly may have attached.
+    try {
+      delete graph.data;
+    } catch {}
+
+    try {
+      delete graph.layout;
+    } catch {}
+
+    try {
+      delete graph._fullLayout;
+    } catch {}
+
+    try {
+      delete graph._fullData;
+    } catch {}
+
+    // Cancel pending redraw.
+    if (state.frame) {
+      cancelAnimationFrame(state.frame);
+      state.frame = 0;
+    }
+
+    window.CalcMaxPerformance._pendingCallback =
+      null;
+  }
+
+  /*
+   * Catch the Clear button before/after CalcMAX handles it.
+   *
+   * Your existing button should have:
+   *
+   *   id="clearBtn"
+   */
+  function installClearHandler() {
+    document.addEventListener(
+      "click",
+      event => {
+        const button =
+          event.target.closest?.("#clearBtn");
+
+        if (!button) {
+          return;
+        }
+
+        // Let CalcMAX's existing clear code run first,
+        // then completely destroy the old Plotly graph.
+        setTimeout(() => {
+          hardClearGraph();
+        }, 0);
+      },
+      true
+    );
+  }
+
+  // ==========================================================
+  // PLOTLY OPTIMIZATION
+  // ==========================================================
 
   function patchPlotly() {
-    if (state.patched || !window.Plotly) {
+    if (
+      state.patched ||
+      !window.Plotly
+    ) {
       return;
     }
 
     const P = window.Plotly;
 
-    // Initial graph creation
-    if (typeof P.newPlot === "function") {
+    // --------------------------------------------------------
+    // newPlot
+    // --------------------------------------------------------
+
+    if (
+      typeof P.newPlot ===
+      "function"
+    ) {
       const originalNewPlot =
         P.newPlot.bind(P);
 
@@ -196,8 +311,14 @@
       };
     }
 
-    // Fast graph updates
-    if (typeof P.react === "function") {
+    // --------------------------------------------------------
+    // react
+    // --------------------------------------------------------
+
+    if (
+      typeof P.react ===
+      "function"
+    ) {
       const originalReact =
         P.react.bind(P);
 
@@ -226,8 +347,14 @@
       };
     }
 
-    // Remove animation transitions
-    if (typeof P.animate === "function") {
+    // --------------------------------------------------------
+    // animate
+    // --------------------------------------------------------
+
+    if (
+      typeof P.animate ===
+      "function"
+    ) {
       const originalAnimate =
         P.animate.bind(P);
 
@@ -253,9 +380,9 @@
     state.patched = true;
   }
 
-  // ----------------------------------------------------------
-  // Resize optimization
-  // ----------------------------------------------------------
+  // ==========================================================
+  // RESIZE
+  // ==========================================================
 
   function resizeGraph() {
     const graph =
@@ -273,45 +400,56 @@
   }
 
   function scheduleResize() {
-    clearTimeout(state.resizeTimer);
+    clearTimeout(
+      state.resizeTimer
+    );
 
-    state.resizeTimer = setTimeout(() => {
-      state.resizeTimer = 0;
+    state.resizeTimer =
+      setTimeout(() => {
+        state.resizeTimer = 0;
 
-      requestAnimationFrame(() => {
-        resizeGraph();
-      });
-    }, 100);
+        requestAnimationFrame(() => {
+          resizeGraph();
+        });
+      }, 100);
   }
 
   window.addEventListener(
     "resize",
     scheduleResize,
-    { passive: true }
+    {
+      passive: true
+    }
   );
 
-  // ----------------------------------------------------------
-  // Adaptive sampling helper
-  // ----------------------------------------------------------
+  // ==========================================================
+  // SMART GRAPH SAMPLING
+  // ==========================================================
 
-  function smartSampleCount(base = 1200) {
+  function smartSampleCount(
+    base = 1200
+  ) {
     const width =
       window.innerWidth || 1200;
 
-    // Don't calculate thousands of unnecessary points
-    // when the visible graph is only a few hundred pixels.
     const maximum =
-      Math.max(400, Math.round(width * 1.5));
+      Math.max(
+        400,
+        Math.round(width * 1.5)
+      );
 
-    return Math.min(base, maximum);
+    return Math.min(
+      base,
+      maximum
+    );
   }
 
-  // ----------------------------------------------------------
-  // Public API
-  // ----------------------------------------------------------
+  // ==========================================================
+  // PUBLIC API
+  // ==========================================================
 
   window.CalcMaxPerformance = {
-    version: "MAX-2.0",
+    version: "MAX-3.0",
 
     fastMode: true,
 
@@ -325,6 +463,8 @@
 
     smartSampleCount,
 
+    clearGraph: hardClearGraph,
+
     isScrolling: () =>
       state.scrolling,
 
@@ -333,26 +473,32 @@
         ? state.scrollFPS
         : state.normalFPS,
 
-    // Internal pending callback
     _pendingCallback: null
   };
 
-  // Try immediately.
+  // ==========================================================
+  // START
+  // ==========================================================
+
   patchPlotly();
 
-  // Plotly may load after this file.
+  // Plotly can sometimes load slightly later.
   if (!state.patched) {
-    const retry = setInterval(() => {
-      patchPlotly();
+    const retry =
+      setInterval(() => {
+        patchPlotly();
 
-      if (state.patched) {
-        clearInterval(retry);
-      }
-    }, 50);
+        if (state.patched) {
+          clearInterval(retry);
+        }
+      }, 50);
 
     setTimeout(() => {
       clearInterval(retry);
     }, 5000);
   }
+
+  // Install the hard-clear behavior.
+  installClearHandler();
 
 })();
