@@ -1,57 +1,96 @@
 /* ==========================================================
    CalcMAX Focus Music
-   Uses: focus-music.mp3
 
-   Music button:
-   <button class="icon-btn" id="musicBtn" type="button">
-     ♫ Music
-   </button>
+   Audio file:
+   focus-music.mp3
 
-   The track loops continuously while enabled.
+   Features:
+   - Play / pause
+   - Loops forever
+   - Uses the existing #musicBtn button
+   - Keeps volume low for background concentration
    ========================================================== */
 
 (() => {
   "use strict";
 
+  // Prevent this script from being installed twice.
   if (window.CalcMaxFocusMusic) return;
 
   let audio = null;
-  let running = false;
+  let playing = false;
+
+  /* ==========================================================
+     CREATE AUDIO PLAYER
+     ========================================================== */
 
   function createAudio() {
-    if (audio) return audio;
+    if (audio) {
+      return audio;
+    }
 
     audio = new Audio("focus-music.mp3");
 
     // LOOP FOREVER
     audio.loop = true;
 
-    // Keep it as quiet background music.
+    // Quiet background volume.
     audio.volume = 0.18;
 
-    // Don't preload the whole track until needed.
+    // Let browser load the track efficiently.
     audio.preload = "auto";
 
     audio.addEventListener("play", () => {
-      running = true;
+      playing = true;
       updateButton();
     });
 
     audio.addEventListener("pause", () => {
-      running = false;
+      playing = false;
       updateButton();
     });
 
-    audio.addEventListener("ended", () => {
-      // Extra safety even though loop=true.
-      if (running) {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      }
+    audio.addEventListener("error", () => {
+      playing = false;
+
+      console.error(
+        "CalcMAX Focus Music could not load focus-music.mp3"
+      );
+
+      updateButton();
     });
 
     return audio;
   }
+
+  /* ==========================================================
+     UPDATE BUTTON
+     ========================================================== */
+
+  function updateButton() {
+    const button =
+      document.getElementById("musicBtn");
+
+    if (!button) {
+      return;
+    }
+
+    if (playing) {
+      button.textContent = "♫ Music ON";
+      button.classList.add("active");
+      button.setAttribute("aria-pressed", "true");
+      button.title = "Pause focus music";
+    } else {
+      button.textContent = "♫ Music";
+      button.classList.remove("active");
+      button.setAttribute("aria-pressed", "false");
+      button.title = "Play focus music";
+    }
+  }
+
+  /* ==========================================================
+     START
+     ========================================================== */
 
   async function startMusic() {
     const player = createAudio();
@@ -59,59 +98,79 @@
     try {
       await player.play();
 
-      running = true;
+      playing = true;
       updateButton();
+
     } catch (error) {
+      /*
+        Browsers can block audio until the user interacts
+        with the page. Clicking the Music button counts as
+        user interaction, so the normal button click works.
+      */
+
       console.warn(
-        "CalcMAX music needs user interaction:",
+        "CalcMAX music could not start:",
         error
       );
 
-      running = false;
+      playing = false;
       updateButton();
     }
   }
 
+  /* ==========================================================
+     STOP
+     ========================================================== */
+
   function stopMusic() {
-    if (!audio) return;
+    if (!audio) {
+      return;
+    }
 
     audio.pause();
+
+    // Start from beginning next time.
     audio.currentTime = 0;
 
-    running = false;
+    playing = false;
+
     updateButton();
   }
 
+  /* ==========================================================
+     TOGGLE
+     ========================================================== */
+
   async function toggleMusic() {
-    if (running) {
+    if (playing) {
       stopMusic();
     } else {
       await startMusic();
     }
   }
 
-  function updateButton() {
+  /* ==========================================================
+     BUTTON SETUP
+     ========================================================== */
+
+  function setupMusicButton() {
     const button =
       document.getElementById("musicBtn");
 
-    if (!button) return;
+    if (!button) {
+      console.warn(
+        "CalcMAX: #musicBtn was not found."
+      );
 
-    if (running) {
-      button.textContent = "♫ Music ON";
-      button.classList.add("active");
-      button.setAttribute("aria-pressed", "true");
-    } else {
-      button.textContent = "♫ Music";
-      button.classList.remove("active");
-      button.setAttribute("aria-pressed", "false");
+      return;
     }
-  }
 
-  function setupButton() {
-    const button =
-      document.getElementById("musicBtn");
+    // Prevent duplicate listeners.
+    if (button.dataset.musicReady === "true") {
+      return;
+    }
 
-    if (!button) return;
+    button.dataset.musicReady = "true";
 
     button.addEventListener(
       "click",
@@ -121,20 +180,43 @@
     updateButton();
   }
 
+  /* ==========================================================
+     PUBLIC API
+     ========================================================== */
+
   window.CalcMaxFocusMusic = {
     start: startMusic,
     stop: stopMusic,
     toggle: toggleMusic,
-    isPlaying: () => running
+
+    isPlaying: () => playing,
+
+    setVolume: (volume) => {
+      if (!audio) {
+        createAudio();
+      }
+
+      audio.volume = Math.max(
+        0,
+        Math.min(1, Number(volume))
+      );
+    }
   };
 
-  if (document.readyState === "loading") {
+  /* ==========================================================
+     STARTUP
+     ========================================================== */
+
+  if (
+    document.readyState ===
+    "loading"
+  ) {
     document.addEventListener(
       "DOMContentLoaded",
-      setupButton
+      setupMusicButton
     );
   } else {
-    setupButton();
+    setupMusicButton();
   }
 
 })();
