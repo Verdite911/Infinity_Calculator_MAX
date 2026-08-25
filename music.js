@@ -2,23 +2,77 @@
    CalcMAX Focus Music
 
    Audio file:
-   focus-music.mp3
+   Golden-Hour-chosic.com_.mp3
+
+   Button:
+   <button class="icon-btn" id="musicBtn" type="button">
+     ♫ Music
+   </button>
 
    Features:
    - Play / pause
    - Loops forever
-   - Uses the existing #musicBtn button
-   - Keeps volume low for background concentration
+   - Uses your existing musicBtn
+   - Low background volume
    ========================================================== */
 
 (() => {
   "use strict";
 
-  // Prevent this script from being installed twice.
+  // Prevent the script from loading twice.
   if (window.CalcMaxFocusMusic) return;
 
   let audio = null;
   let playing = false;
+  let ready = false;
+
+  // IMPORTANT:
+  // This must exactly match the MP3 filename
+  // in your GitHub project.
+  const AUDIO_FILE =
+    "Golden-Hour-chosic.com_.mp3";
+
+  /* ==========================================================
+     GET BUTTON
+     ========================================================== */
+
+  function getButton() {
+    return document.getElementById("musicBtn");
+  }
+
+  /* ==========================================================
+     UPDATE BUTTON
+     ========================================================== */
+
+  function updateButton() {
+    const button = getButton();
+
+    if (!button) return;
+
+    if (playing) {
+      button.textContent = "♫ Music ON";
+
+      button.classList.add("active");
+
+      button.setAttribute(
+        "aria-pressed",
+        "true"
+      );
+
+      button.title = "Stop focus music";
+    } else {
+      button.textContent = "♫ Music";
+
+      button.classList.remove("active");
+
+      button.setAttribute(
+        "aria-pressed",
+        "false"
+      );
+
+      button.title = "Play focus music";
+    }
+  }
 
   /* ==========================================================
      CREATE AUDIO PLAYER
@@ -29,67 +83,94 @@
       return audio;
     }
 
-    audio = new Audio("focus-music.mp3");
+    audio = new Audio(AUDIO_FILE);
 
     // LOOP FOREVER
     audio.loop = true;
 
-    // Quiet background volume.
+    // Quiet concentration background volume.
     audio.volume = 0.18;
 
-    // Let browser load the track efficiently.
+    // Let the browser preload it.
     audio.preload = "auto";
 
-    audio.addEventListener("play", () => {
-      playing = true;
-      updateButton();
-    });
+    /* --------------------------------------------------------
+       AUDIO EVENTS
+       -------------------------------------------------------- */
 
-    audio.addEventListener("pause", () => {
-      playing = false;
-      updateButton();
-    });
+    audio.addEventListener(
+      "loadeddata",
+      () => {
+        ready = true;
+        updateButton();
+      }
+    );
 
-    audio.addEventListener("error", () => {
-      playing = false;
+    audio.addEventListener(
+      "canplaythrough",
+      () => {
+        ready = true;
+        updateButton();
+      }
+    );
 
-      console.error(
-        "CalcMAX Focus Music could not load focus-music.mp3"
-      );
+    audio.addEventListener(
+      "play",
+      () => {
+        playing = true;
+        updateButton();
+      }
+    );
 
-      updateButton();
-    });
+    audio.addEventListener(
+      "pause",
+      () => {
+        playing = false;
+        updateButton();
+      }
+    );
+
+    audio.addEventListener(
+      "ended",
+      () => {
+        // loop=true should handle this,
+        // but this is an extra safety fallback.
+        if (playing) {
+          audio.currentTime = 0;
+
+          audio.play().catch(() => {});
+        }
+      }
+    );
+
+    audio.addEventListener(
+      "error",
+      () => {
+        ready = false;
+        playing = false;
+
+        updateButton();
+
+        const button = getButton();
+
+        if (button) {
+          button.title =
+            "Music file could not be loaded.";
+        }
+
+        console.error(
+          "CalcMAX music could not load:",
+          AUDIO_FILE,
+          audio.error
+        );
+      }
+    );
 
     return audio;
   }
 
   /* ==========================================================
-     UPDATE BUTTON
-     ========================================================== */
-
-  function updateButton() {
-    const button =
-      document.getElementById("musicBtn");
-
-    if (!button) {
-      return;
-    }
-
-    if (playing) {
-      button.textContent = "♫ Music ON";
-      button.classList.add("active");
-      button.setAttribute("aria-pressed", "true");
-      button.title = "Pause focus music";
-    } else {
-      button.textContent = "♫ Music";
-      button.classList.remove("active");
-      button.setAttribute("aria-pressed", "false");
-      button.title = "Play focus music";
-    }
-  }
-
-  /* ==========================================================
-     START
+     START MUSIC
      ========================================================== */
 
   async function startMusic() {
@@ -99,37 +180,35 @@
       await player.play();
 
       playing = true;
+
       updateButton();
 
     } catch (error) {
-      /*
-        Browsers can block audio until the user interacts
-        with the page. Clicking the Music button counts as
-        user interaction, so the normal button click works.
-      */
+      playing = false;
+
+      updateButton();
 
       console.warn(
-        "CalcMAX music could not start:",
+        "CalcMAX music needs a user interaction:",
         error
       );
-
-      playing = false;
-      updateButton();
     }
   }
 
   /* ==========================================================
-     STOP
+     STOP MUSIC
      ========================================================== */
 
   function stopMusic() {
     if (!audio) {
+      playing = false;
+      updateButton();
       return;
     }
 
     audio.pause();
 
-    // Start from beginning next time.
+    // Restart from beginning next time.
     audio.currentTime = 0;
 
     playing = false;
@@ -138,7 +217,7 @@
   }
 
   /* ==========================================================
-     TOGGLE
+     TOGGLE MUSIC
      ========================================================== */
 
   async function toggleMusic() {
@@ -150,12 +229,32 @@
   }
 
   /* ==========================================================
-     BUTTON SETUP
+     SET VOLUME
+     Example:
+       CalcMaxFocusMusic.setVolume(0.1);
      ========================================================== */
 
-  function setupMusicButton() {
-    const button =
-      document.getElementById("musicBtn");
+  function setVolume(volume) {
+    const player = createAudio();
+
+    const value = Number(volume);
+
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+    player.volume = Math.max(
+      0,
+      Math.min(1, value)
+    );
+  }
+
+  /* ==========================================================
+     SETUP BUTTON
+     ========================================================== */
+
+  function setupButton() {
+    const button = getButton();
 
     if (!button) {
       console.warn(
@@ -165,17 +264,26 @@
       return;
     }
 
-    // Prevent duplicate listeners.
-    if (button.dataset.musicReady === "true") {
+    // Prevent duplicate event listeners.
+    if (
+      button.dataset.musicReady === "true"
+    ) {
+      updateButton();
       return;
     }
 
     button.dataset.musicReady = "true";
 
+    button.type = "button";
+
     button.addEventListener(
       "click",
       toggleMusic
     );
+
+    // Create the audio player now.
+    // It will NOT autoplay.
+    createAudio();
 
     updateButton();
   }
@@ -186,21 +294,16 @@
 
   window.CalcMaxFocusMusic = {
     start: startMusic,
+
     stop: stopMusic,
+
     toggle: toggleMusic,
+
+    setVolume,
 
     isPlaying: () => playing,
 
-    setVolume: (volume) => {
-      if (!audio) {
-        createAudio();
-      }
-
-      audio.volume = Math.max(
-        0,
-        Math.min(1, Number(volume))
-      );
-    }
+    isReady: () => ready
   };
 
   /* ==========================================================
@@ -213,10 +316,10 @@
   ) {
     document.addEventListener(
       "DOMContentLoaded",
-      setupMusicButton
+      setupButton
     );
   } else {
-    setupMusicButton();
+    setupButton();
   }
 
 })();
