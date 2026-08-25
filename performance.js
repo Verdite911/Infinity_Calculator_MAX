@@ -1,10 +1,17 @@
 /* ==========================================================
-   CalcMAX Performance MAX
-   Smooth scrolling + fast graph rendering
+   CalcMAX Performance SAFE
 
    IMPORTANT:
-   This file does NOT control expression deletion.
-   CalcMAX's own delete/clear code remains in charge of that.
+   - Does NOT handle expression deletion.
+   - Does NOT handle the Clear button.
+   - Does NOT call Plotly.purge().
+   - Does NOT replace Plotly.newPlot(), react(), or animate().
+   - Does NOT replace queueDraw() or draw().
+
+   Load BEFORE script.js:
+
+     <script src="performance.js"></script>
+     <script src="script.js"></script>
    ========================================================== */
 
 (() => {
@@ -13,49 +20,17 @@
   if (window.CalcMaxPerformance) return;
 
   const state = {
-    frame: 0,
+    frameId: 0,
     resizeTimer: 0,
     scrollTimer: 0,
     scrolling: false,
-    lastDraw: 0,
-    lastResize: 0,
+    lastScheduledDraw: 0,
     normalFPS: 60,
     scrollFPS: 30,
-    patched: false,
-    pendingCallback: null
+    pendingDraw: null
   };
 
-  /* ==========================================================
-     FAST PLOTLY SETTINGS
-     ========================================================== */
-
-  const FAST_CONFIG = {
-    displaylogo: false,
-    responsive: true,
-    showTips: false
-  };
-
-  const FAST_LAYOUT = {
-    transition: {
-      duration: 0
-    },
-    uirevision: "calcmax",
-    dragmode: "pan"
-  };
-
-  const FAST_ANIMATION = {
-    transition: {
-      duration: 0
-    },
-    frame: {
-      duration: 0,
-      redraw: false
-    }
-  };
-
-  /* ==========================================================
-     SCROLL DETECTION
-     ========================================================== */
+  /* -------------------- Scroll detection -------------------- */
 
   function markScrolling() {
     state.scrolling = true;
@@ -65,16 +40,16 @@
     state.scrollTimer = setTimeout(() => {
       state.scrolling = false;
 
-      if (state.pendingCallback) {
-        const callback = state.pendingCallback;
-        state.pendingCallback = null;
+      if (state.pendingDraw) {
+        const callback = state.pendingDraw;
+        state.pendingDraw = null;
 
         requestAnimationFrame(() => {
           try {
             callback();
           } catch (error) {
             console.error(
-              "CalcMAX redraw error:",
+              "CalcMAX performance callback failed:",
               error
             );
           }
@@ -83,34 +58,26 @@
     }, 140);
   }
 
-  window.addEventListener(
-    "scroll",
-    markScrolling,
-    { passive: true }
-  );
+  window.addEventListener("scroll", markScrolling, {
+    passive: true
+  });
 
-  window.addEventListener(
-    "wheel",
-    markScrolling,
-    { passive: true }
-  );
+  window.addEventListener("wheel", markScrolling, {
+    passive: true
+  });
 
-  window.addEventListener(
-    "touchmove",
-    markScrolling,
-    { passive: true }
-  );
+  window.addEventListener("touchmove", markScrolling, {
+    passive: true
+  });
 
-  /* ==========================================================
-     SMART DRAW SCHEDULER
-     ========================================================== */
+  /* -------------------- Safe frame scheduler -------------------- */
 
   function requestDraw(callback) {
     if (typeof callback !== "function") {
       return;
     }
 
-    state.pendingCallback = callback;
+    state.pendingDraw = callback;
 
     const now = performance.now();
 
@@ -121,29 +88,29 @@
     const minimumInterval = 1000 / fps;
 
     if (
-      now - state.lastDraw <
+      now - state.lastScheduledDraw <
       minimumInterval
     ) {
       return;
     }
 
-    if (state.frame) {
+    if (state.frameId) {
       return;
     }
 
-    state.frame = requestAnimationFrame(() => {
-      state.frame = 0;
-      state.lastDraw = performance.now();
+    state.frameId = requestAnimationFrame(() => {
+      state.frameId = 0;
+      state.lastScheduledDraw = performance.now();
 
-      const draw = state.pendingCallback;
-      state.pendingCallback = null;
+      const callbackToRun = state.pendingDraw;
+      state.pendingDraw = null;
 
-      if (!draw) {
+      if (!callbackToRun) {
         return;
       }
 
       try {
-        draw();
+        callbackToRun();
       } catch (error) {
         console.error(
           "CalcMAX performance draw failed:",
@@ -153,150 +120,74 @@
     });
   }
 
-  /* ==========================================================
-     PLOTLY OPTIMIZATION
-     ========================================================== */
+  function cancelDraw() {
+    if (state.frameId) {
+      cancelAnimationFrame(state.frameId);
+      state.frameId = 0;
+    }
 
-  function patchPlotly() {
-    if (
-      state.patched ||
-      !window.Plotly
-    ) {
+    state.pendingDraw = null;
+  }
+
+  /* -------------------- Safe resize helpers -------------------- */
+
+  function scheduleResize(callback) {
+    if (typeof callback !== "function") {
       return;
     }
 
-    const P = window.Plotly;
-
-    /* ---------- newPlot ---------- */
-
-    if (typeof P.newPlot === "function") {
-      const originalNewPlot =
-        P.newPlot.bind(P);
-
-      P.newPlot = function(
-        graph,
-        data,
-        layout,
-        config,
-        ...rest
-      ) {
-        return originalNewPlot(
-          graph,
-          data,
-          Object.assign(
-            {},
-            layout || {},
-            FAST_LAYOUT
-          ),
-          Object.assign(
-            {},
-            config || {},
-            FAST_CONFIG
-          ),
-          ...rest
-        );
-      };
-    }
-
-    /* ---------- react ---------- */
-
-    if (typeof P.react === "function") {
-      const originalReact =
-        P.react.bind(P);
-
-      P.react = function(
-        graph,
-        data,
-        layout,
-        config,
-        ...rest
-      ) {
-        return originalReact(
-          graph,
-          data,
-          Object.assign(
-            {},
-            layout || {},
-            FAST_LAYOUT
-          ),
-          Object.assign(
-            {},
-            config || {},
-            FAST_CONFIG
-          ),
-          ...rest
-        );
-      };
-    }
-
-    /* ---------- animate ---------- */
-
-    if (typeof P.animate === "function") {
-      const originalAnimate =
-        P.animate.bind(P);
-
-      P.animate = function(
-        graph,
-        animation,
-        options,
-        ...rest
-      ) {
-        return originalAnimate(
-          graph,
-          animation,
-          Object.assign(
-            {},
-            options || {},
-            FAST_ANIMATION
-          ),
-          ...rest
-        );
-      };
-    }
-
-    state.patched = true;
-  }
-
-  /* ==========================================================
-     RESIZE OPTIMIZATION
-     ========================================================== */
-
-  function resizeGraph() {
-    const graph =
-      document.getElementById("graph");
-
-    if (
-      graph &&
-      window.Plotly &&
-      Plotly.Plots &&
-      typeof Plotly.Plots.resize ===
-        "function"
-    ) {
-      Plotly.Plots.resize(graph);
-    }
-  }
-
-  function scheduleResize() {
     clearTimeout(state.resizeTimer);
 
     state.resizeTimer = setTimeout(() => {
       state.resizeTimer = 0;
 
       requestAnimationFrame(() => {
-        resizeGraph();
+        try {
+          callback();
+        } catch (error) {
+          console.error(
+            "CalcMAX resize callback failed:",
+            error
+          );
+        }
       });
     }, 100);
   }
 
+  function resizeGraph() {
+    const graph =
+      document.getElementById("graph");
+
+    if (
+      !graph ||
+      !window.Plotly ||
+      !Plotly.Plots ||
+      typeof Plotly.Plots.resize !== "function"
+    ) {
+      return;
+    }
+
+    try {
+      Plotly.Plots.resize(graph);
+    } catch (error) {
+      console.warn(
+        "CalcMAX graph resize failed:",
+        error
+      );
+    }
+  }
+
+  function scheduleGraphResize() {
+    scheduleResize(resizeGraph);
+  }
+
   window.addEventListener(
     "resize",
-    scheduleResize,
+    scheduleGraphResize,
     { passive: true }
   );
 
-  /* ==========================================================
-     SMART SAMPLE COUNT
-     ========================================================== */
+  /* -------------------- Adaptive sample count -------------------- */
 
   function smartSampleCount(base = 1200) {
     const width =
@@ -313,20 +204,18 @@
     );
   }
 
-  /* ==========================================================
-     PUBLIC API
-     ========================================================== */
+  /* -------------------- Public API -------------------- */
 
   window.CalcMaxPerformance = {
-    version: "MAX-CLEAN",
-
-    fastMode: true,
+    version: "SAFE-1.0",
 
     requestDraw,
     schedule: requestDraw,
+    cancelDraw,
 
-    patchPlotly,
     resize: resizeGraph,
+    scheduleResize,
+    scheduleGraphResize,
 
     smartSampleCount,
 
@@ -338,32 +227,12 @@
         ? state.scrollFPS
         : state.normalFPS,
 
-    _pendingCallback: null
+    getState: () => ({
+      scrolling: state.scrolling,
+      normalFPS: state.normalFPS,
+      scrollFPS: state.scrollFPS,
+      frameQueued: Boolean(state.frameId)
+    })
   };
-
-  /* ==========================================================
-     START
-     ========================================================== */
-
-  patchPlotly();
-
-  /*
-   * Plotly may load after performance.js.
-   * Retry briefly.
-   */
-
-  if (!state.patched) {
-    const retry = setInterval(() => {
-      patchPlotly();
-
-      if (state.patched) {
-        clearInterval(retry);
-      }
-    }, 50);
-
-    setTimeout(() => {
-      clearInterval(retry);
-    }, 5000);
-  }
 
 })();
