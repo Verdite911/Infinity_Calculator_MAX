@@ -2,155 +2,98 @@
   const AUDIO_FILE = "Golden-Hour-chosic.com_.mp3";
 
   let musicAudio = null;
-  let musicPlaying = false;
+  let musicOn = false;
 
-  function setupMusic() {
-    if (musicAudio) return musicAudio;
+  function startMusic() {
+    if (!musicAudio) {
+      musicAudio = new Audio(AUDIO_FILE);
 
-    musicAudio = new Audio(AUDIO_FILE);
-    musicAudio.loop = true;
-    musicAudio.volume = 0.18;
-    musicAudio.preload = "auto";
+      musicAudio.loop = true;
+      musicAudio.volume = 0.18;
+    }
 
-    musicAudio.addEventListener("play", () => {
-      musicPlaying = true;
+    musicAudio.play().then(() => {
+      musicOn = true;
 
       const b = document.getElementById("musicBtn");
       if (b) {
         b.textContent = "♫ Music:ON";
         b.classList.add("active");
       }
+    }).catch(error => {
+      console.warn("Music could not start:", error);
     });
-
-    musicAudio.addEventListener("pause", () => {
-      musicPlaying = false;
-
-      const b = document.getElementById("musicBtn");
-      if (b) {
-        b.textContent = "♫ Music:OFF";
-        b.classList.remove("active");
-      }
-    });
-
-    musicAudio.addEventListener("error", () => {
-      musicPlaying = false;
-
-      const b = document.getElementById("musicBtn");
-      if (b) {
-        b.textContent = "♫ Music:OFF";
-        b.classList.remove("active");
-      }
-
-      console.error(
-        "CalcMAX music file could not be loaded:",
-        AUDIO_FILE
-      );
-    });
-
-    return musicAudio;
   }
 
-  async function toggleMusic() {
-    const audio = setupMusic();
+  function stopMusic() {
+    if (!musicAudio) return;
 
-    if (audio.paused) {
-      try {
-        await audio.play();
+    musicAudio.pause();
+    musicAudio.currentTime = 0;
 
-        musicPlaying = true;
+    musicOn = false;
 
-        const b = document.getElementById("musicBtn");
-        if (b) {
-          b.textContent = "♫ Music:ON";
-          b.classList.add("active");
-        }
+    const b = document.getElementById("musicBtn");
 
-      } catch (error) {
-        console.warn(
-          "CalcMAX music playback was blocked:",
-          error
-        );
-      }
+    if (b) {
+      b.textContent = "♫ Music:OFF";
+      b.classList.remove("active");
+    }
+  }
 
+  function toggleMusic() {
+    if (musicOn) {
+      stopMusic();
     } else {
-      audio.pause();
-      audio.currentTime = 0;
+      startMusic();
+    }
+  }
 
-      musicPlaying = false;
-
+  /*
+    Use the SAME button pattern as script.js.
+  */
+  function setupMusicButton() {
+    if (typeof bindButton === "function") {
+      bindButton("musicBtn", () => {
+        toggleMusic();
+      });
+    } else {
       const b = document.getElementById("musicBtn");
-      if (b) {
-        b.textContent = "♫ Music:OFF";
-        b.classList.remove("active");
-      }
+
+      if (!b) return;
+
+      b.onclick = null;
+
+      b.addEventListener("click", function(e) {
+        e.preventDefault();
+        toggleMusic();
+      });
+    }
+
+    const b = document.getElementById("musicBtn");
+
+    if (b) {
+      b.textContent = "♫ Music:OFF";
     }
   }
 
   window.CalcMaxFocusMusic = {
+    start: startMusic,
+    stop: stopMusic,
     toggle: toggleMusic,
-    start: async () => {
-      const audio = setupMusic();
-      try {
-        await audio.play();
-      } catch (error) {
-        console.warn(
-          "CalcMAX music playback was blocked:",
-          error
-        );
-      }
-    },
-    stop: () => {
-      if (!musicAudio) return;
-
-      musicAudio.pause();
-      musicAudio.currentTime = 0;
-      musicPlaying = false;
-
-      const b = document.getElementById("musicBtn");
-      if (b) {
-        b.textContent = "♫ Music:OFF";
-        b.classList.remove("active");
-      }
-    },
-    isPlaying: () => musicPlaying
+    isPlaying: () => musicOn
   };
 
   /*
-    This follows CalcMAX's existing button pattern:
-
-      bindButton("exactBtn",()=>{ ... });
-
-    So musicBtn is handled the same way as the other
-    top-bar buttons.
+    Wait for the existing CalcMAX DOM.
   */
-
-  if (typeof window.bindButton === "function") {
-    bindButton("musicBtn", toggleMusic);
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      setupMusicButton
+    );
   } else {
-    // Fallback in case music.js loads before script.js.
-    document.addEventListener("DOMContentLoaded", () => {
-      if (typeof window.bindButton === "function") {
-        bindButton("musicBtn", toggleMusic);
-      } else {
-        const b = document.getElementById("musicBtn");
-
-        if (b) {
-          b.onclick = toggleMusic;
-        }
-      }
-    });
+    setupMusicButton();
   }
-
-  // Make sure the initial text matches the requested pattern.
-  document.addEventListener("DOMContentLoaded", () => {
-    const b = document.getElementById("musicBtn");
-
-    if (b && !musicPlaying) {
-      b.textContent = "♫ Music:OFF";
-      b.classList.remove("active");
-    }
-
-    setupMusic();
-  });
 
 })();
