@@ -1,136 +1,112 @@
 document.addEventListener("DOMContentLoaded", function () {
 
-  const audio =
-    document.getElementById("myAudio");
-
-  const musicBtn =
-    document.getElementById("musicBtn");
+  const audio = document.getElementById("myAudio");
+  const musicBtn = document.getElementById("musicBtn");
 
   if (!audio) {
-    console.error(
-      "CalcMAX: myAudio was not found."
-    );
+    console.error("CalcMAX: myAudio not found.");
     return;
   }
 
   if (!musicBtn) {
-    console.error(
-      "CalcMAX: musicBtn was not found."
-    );
+    console.error("CalcMAX: musicBtn not found.");
     return;
   }
 
-  // Loop forever.
+  // Music settings
   audio.loop = true;
-
-  // Quiet background volume.
   audio.volume = 0.18;
 
-  // Starting state.
-  musicBtn.textContent =
-    "♫ Music:OFF";
+  // Starting state
+  musicBtn.textContent = "♫ Music:OFF";
 
-  /*
-  ----------------------------------------------------------
-  MUSIC BUTTON
-  ----------------------------------------------------------
-  */
+  musicBtn.addEventListener("click", async function () {
 
-  musicBtn.addEventListener(
-    "click",
-    function () {
+    /*
+    ----------------------------------------------------------
+    CHANGE THE BUTTON STATE
+    ----------------------------------------------------------
+    */
 
-      if (
-        musicBtn.textContent ===
-        "♫ Music:OFF"
-      ) {
-
-        try {
-
-          const playPromise =
-            audio.play();
-
-          if (
-            playPromise !== undefined
-          ) {
-
-            playPromise
-              .then(function () {
-
-                musicBtn.textContent =
-                  "♫ Music:ON";
-
-              })
-              .catch(function (error) {
-
-                console.error(
-                  "Playback failed:",
-                  error
-                );
-
-              });
-
-          }
-
-        } catch (error) {
-
-          console.error(
-            "Error starting audio:",
-            error
-          );
-
-        }
-
-      } else {
-
-        try {
-
-          audio.pause();
-
-          audio.currentTime = 0;
-
-          musicBtn.textContent =
-            "♫ Music:OFF";
-
-        } catch (error) {
-
-          console.error(
-            "Error stopping audio:",
-            error
-          );
-
-        }
-
-      }
-
-    }
-  );
-
-  /*
-  ----------------------------------------------------------
-  KEEP BUTTON IN SYNC WITH AUDIO
-  ----------------------------------------------------------
-  */
-
-  audio.addEventListener(
-    "play",
-    function () {
+    if (
+      musicBtn.textContent.trim() ===
+      "♫ Music:OFF"
+    ) {
 
       musicBtn.textContent =
         "♫ Music:ON";
 
-    }
-  );
-
-  audio.addEventListener(
-    "pause",
-    function () {
+    } else {
 
       musicBtn.textContent =
         "♫ Music:OFF";
 
     }
-  );
+
+    /*
+    ----------------------------------------------------------
+    MUSIC LOGIC
+    ----------------------------------------------------------
+
+    ON  = PLAY
+    OFF = STOP
+    */
+
+    const currentText =
+      musicBtn.textContent.trim();
+
+    if (
+      currentText ===
+      "♫ Music:ON"
+    ) {
+
+      try {
+
+        await audio.play();
+
+      } catch (error) {
+
+        console.error(
+          "CalcMAX music playback failed:",
+          error
+        );
+
+        // If playback fails, return button to OFF.
+        musicBtn.textContent =
+          "♫ Music:OFF";
+      }
+
+    } else if (
+      currentText ===
+      "♫ Music:OFF"
+    ) {
+
+      audio.pause();
+      audio.currentTime = 0;
+
+    }
+
+  });
+
+  /*
+  ----------------------------------------------------------
+  KEEP BUTTON SYNCHRONIZED
+  ----------------------------------------------------------
+  */
+
+  audio.addEventListener("play", function () {
+
+    musicBtn.textContent =
+      "♫ Music:ON";
+
+  });
+
+  audio.addEventListener("pause", function () {
+
+    musicBtn.textContent =
+      "♫ Music:OFF";
+
+  });
 
   /*
   ----------------------------------------------------------
@@ -138,17 +114,17 @@ document.addEventListener("DOMContentLoaded", function () {
   ----------------------------------------------------------
   */
 
-  audio.addEventListener(
-    "error",
-    function () {
+  audio.addEventListener("error", function () {
 
-      console.error(
-        "CalcMAX could not load:",
-        "Golden-Hour-chosic.com_.mp3",
-        audio.error
-      );
+    console.error(
+      "CalcMAX could not load the music file:",
+      audio.src,
+      audio.error
+    );
 
-    }
-  );
+    musicBtn.textContent =
+      "♫ Music:OFF";
+
+  });
 
 });
