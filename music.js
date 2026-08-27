@@ -1,93 +1,116 @@
 (() => {
-  const AUDIO_FILE = "Golden-Hour-chosic.com_.mp3";
+  "use strict";
 
   let musicAudio = null;
-  let musicOn = false;
+  let musicPlaying = false;
 
-  function startMusic() {
-    if (!musicAudio) {
-      musicAudio = new Audio(AUDIO_FILE);
+  const MUSIC_FILE = "Golden-Hour-chosic.com_.mp3";
 
-      musicAudio.loop = true;
-      musicAudio.volume = 0.18;
-    }
+  function getMusicButton() {
+    return document.getElementById("musicBtn");
+  }
 
-    musicAudio.play().then(() => {
-      musicOn = true;
+  function updateMusicButton() {
+    const button = getMusicButton();
 
-      const b = document.getElementById("musicBtn");
-      if (b) {
-        b.textContent = "♫ Music:ON";
-        b.classList.add("active");
-      }
-    }).catch(error => {
-      console.warn("Music could not start:", error);
+    if (!button) return;
+
+    button.textContent = musicPlaying
+      ? "♫ Music:ON"
+      : "♫ Music:OFF";
+  }
+
+  function createMusic() {
+    if (musicAudio) return musicAudio;
+
+    musicAudio = new Audio(MUSIC_FILE);
+
+    musicAudio.loop = true;
+    musicAudio.volume = 0.18;
+    musicAudio.preload = "auto";
+
+    musicAudio.addEventListener("play", () => {
+      musicPlaying = true;
+      updateMusicButton();
     });
+
+    musicAudio.addEventListener("pause", () => {
+      musicPlaying = false;
+      updateMusicButton();
+    });
+
+    musicAudio.addEventListener("error", () => {
+      musicPlaying = false;
+      updateMusicButton();
+
+      console.error(
+        "CalcMAX could not load:",
+        MUSIC_FILE
+      );
+    });
+
+    return musicAudio;
   }
 
-  function stopMusic() {
-    if (!musicAudio) return;
+  async function toggleMusic() {
+    const audio = createMusic();
 
-    musicAudio.pause();
-    musicAudio.currentTime = 0;
+    if (audio.paused) {
+      try {
+        await audio.play();
 
-    musicOn = false;
+        musicPlaying = true;
+        updateMusicButton();
 
-    const b = document.getElementById("musicBtn");
+      } catch (error) {
+        console.error(
+          "CalcMAX music could not start:",
+          error
+        );
+      }
 
-    if (b) {
-      b.textContent = "♫ Music:OFF";
-      b.classList.remove("active");
-    }
-  }
-
-  function toggleMusic() {
-    if (musicOn) {
-      stopMusic();
     } else {
-      startMusic();
+      audio.pause();
+      audio.currentTime = 0;
+
+      musicPlaying = false;
+      updateMusicButton();
     }
   }
 
-  /*
-    Use the SAME button pattern as script.js.
-  */
   function setupMusicButton() {
-    if (typeof bindButton === "function") {
-      bindButton("musicBtn", () => {
-        toggleMusic();
-      });
-    } else {
-      const b = document.getElementById("musicBtn");
+    const button = getMusicButton();
 
-      if (!b) return;
-
-      b.onclick = null;
-
-      b.addEventListener("click", function(e) {
-        e.preventDefault();
-        toggleMusic();
-      });
+    if (!button) {
+      console.error(
+        "CalcMAX: musicBtn was not found."
+      );
+      return;
     }
 
-    const b = document.getElementById("musicBtn");
+    /*
+      Remove anything previously attached by this script.
+      Then attach one clean click handler.
+    */
+    button.onclick = null;
 
-    if (b) {
-      b.textContent = "♫ Music:OFF";
-    }
+    button.addEventListener(
+      "click",
+      toggleMusic
+    );
+
+    button.textContent = "♫ Music:OFF";
+
+    createMusic();
   }
 
-  window.CalcMaxFocusMusic = {
-    start: startMusic,
-    stop: stopMusic,
-    toggle: toggleMusic,
-    isPlaying: () => musicOn
-  };
-
   /*
-    Wait for the existing CalcMAX DOM.
+    Wait until the HTML button definitely exists.
   */
-  if (document.readyState === "loading") {
+  if (
+    document.readyState ===
+    "loading"
+  ) {
     document.addEventListener(
       "DOMContentLoaded",
       setupMusicButton
@@ -95,5 +118,39 @@
   } else {
     setupMusicButton();
   }
+
+  /*
+    Optional global controls.
+  */
+  window.CalcMaxFocusMusic = {
+    start: async () => {
+      const audio = createMusic();
+
+      try {
+        await audio.play();
+        musicPlaying = true;
+        updateMusicButton();
+      } catch (error) {
+        console.error(
+          "CalcMAX music could not start:",
+          error
+        );
+      }
+    },
+
+    stop: () => {
+      if (!musicAudio) return;
+
+      musicAudio.pause();
+      musicAudio.currentTime = 0;
+
+      musicPlaying = false;
+      updateMusicButton();
+    },
+
+    toggle: toggleMusic,
+
+    isPlaying: () => musicPlaying
+  };
 
 })();
