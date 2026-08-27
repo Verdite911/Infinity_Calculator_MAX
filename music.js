@@ -1,44 +1,66 @@
-document.addEventListener("DOMContentLoaded", function () {
+"use strict";
 
-  const button = document.getElementById("musicBtn");
-  const audio = document.getElementById("myAudio");
+const musicBtn = document.getElementById("musicBtn");
+const audio = document.getElementById("myAudio");
 
-  if (!button || !audio) {
-    console.error("Music setup failed.");
-    return;
-  }
+if (musicBtn && audio) {
 
   audio.loop = true;
   audio.volume = 0.18;
 
-  button.textContent = "♫ Music:OFF";
+  musicBtn.textContent = "♫ Music:OFF";
 
-  button.addEventListener("click", function () {
+  musicBtn.onclick = function (event) {
 
-    if (button.textContent.trim() === "♫ Music:OFF") {
+    event.preventDefault();
 
-      button.textContent = "♫ Music:ON";
+    /*
+      Change button text first.
+    */
+
+    if (musicBtn.textContent === "♫ Music:OFF") {
+
+      musicBtn.textContent = "♫ Music:ON";
 
     } else {
 
-      button.textContent = "♫ Music:OFF";
+      musicBtn.textContent = "♫ Music:OFF";
 
     }
 
-    if (button.textContent.trim() === "♫ Music:ON") {
+    /*
+      Button text decides what happens.
+    */
+
+    if (musicBtn.textContent === "♫ Music:ON") {
 
       audio.play().catch(function (error) {
-        console.error("Music playback failed:", error);
-        button.textContent = "♫ Music:OFF";
+
+        console.error(
+          "Music playback failed:",
+          error
+        );
+
+        musicBtn.textContent =
+          "♫ Music:OFF";
+
       });
 
-    } else if (button.textContent.trim() === "♫ Music:OFF") {
+    }
+
+    if (musicBtn.textContent === "♫ Music:OFF") {
 
       audio.pause();
       audio.currentTime = 0;
 
     }
 
-  });
+  };
 
-});
+} else {
+
+  console.error(
+    "CalcMAX Music: musicBtn or myAudio not found."
+  );
+
+}
