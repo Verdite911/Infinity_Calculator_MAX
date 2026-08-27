@@ -1,7 +1,10 @@
 document.addEventListener("DOMContentLoaded", function () {
 
-  const musicBtn = document.getElementById("musicBtn");
-  const audio = document.getElementById("myAudio");
+  const musicBtn =
+    document.getElementById("musicBtn");
+
+  const audio =
+    document.getElementById("myAudio");
 
   if (!musicBtn) {
     console.error("CalcMAX: musicBtn not found.");
@@ -13,30 +16,28 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
-  // Make the music loop forever.
   audio.loop = true;
-
-  // Background volume.
+  audio.preload = "auto";
   audio.volume = 0.18;
 
-  // Start OFF.
+  /*
+  ==========================================================
+  INITIAL STATE
+  ==========================================================
+  */
+
   musicBtn.textContent = "♫ Music:OFF";
 
   /*
   ==========================================================
-  MUSIC BUTTON
+  CLICK
   ==========================================================
   */
 
   musicBtn.addEventListener("click", function () {
 
     /*
-    ----------------------------------------------------------
-    FIRST CHANGE THE BUTTON TEXT
-    ----------------------------------------------------------
-
-    OFF -> ON
-    ON  -> OFF
+    First change the text.
     */
 
     if (
@@ -55,19 +56,11 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     /*
-    ----------------------------------------------------------
-    NOW CHECK THE NEW TEXT
-    ----------------------------------------------------------
-
-    ON  -> PLAY
-    OFF -> STOP
+    Then use the NEW text to decide what to do.
     */
 
-    const currentText =
-      musicBtn.textContent.trim();
-
     if (
-      currentText ===
+      musicBtn.textContent.trim() ===
       "♫ Music:ON"
     ) {
 
@@ -90,8 +83,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         });
 
-    } else if (
-      currentText ===
+    }
+
+    else if (
+      musicBtn.textContent.trim() ===
       "♫ Music:OFF"
     ) {
 
@@ -101,40 +96,57 @@ document.addEventListener("DOMContentLoaded", function () {
 
       musicBtn.textContent =
         "♫ Music:OFF";
+
     }
 
   });
 
   /*
   ==========================================================
-  AUDIO ELEMENT EVENTS
+  AUDIO EVENTS
   ==========================================================
   */
 
-  audio.addEventListener("play", function () {
+  audio.addEventListener(
+    "play",
+    function () {
 
-    musicBtn.textContent =
-      "♫ Music:ON";
+      musicBtn.textContent =
+        "♫ Music:ON";
 
-  });
+    }
+  );
 
-  audio.addEventListener("pause", function () {
+  audio.addEventListener(
+    "pause",
+    function () {
 
-    musicBtn.textContent =
-      "♫ Music:OFF";
+      musicBtn.textContent =
+        "♫ Music:OFF";
 
-  });
+    }
+  );
 
-  audio.addEventListener("error", function () {
+  /*
+  ==========================================================
+  AUDIO ERROR
+  ==========================================================
+  */
 
-    console.error(
-      "CalcMAX: Could not load Golden-Hour-chosic.com_.mp3",
-      audio.error
-    );
+  audio.addEventListener(
+    "error",
+    function () {
 
-    musicBtn.textContent =
-      "♫ Music:OFF";
+      console.error(
+        "CalcMAX could not load the music file.",
+        audio.src,
+        audio.error
+      );
 
-  });
+      musicBtn.textContent =
+        "♫ Music:OFF";
+
+    }
+  );
 
 });
