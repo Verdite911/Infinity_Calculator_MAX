@@ -1,7 +1,6 @@
 (() => {
   "use strict";
-
-  const MUSIC_FILE = "Golden-Hour-chosic.com_.mp3";
+const MUSIC_FILE = "./Golden-Hour-chosic.com_.mp3";
 
   let clickCount = 0;
   let audio = null;
