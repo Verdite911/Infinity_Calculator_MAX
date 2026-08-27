@@ -9,26 +9,27 @@
   Button:
     #musicBtn
 
-  Audio:
+  Audio file:
     Golden-Hour-chosic.com_.mp3
 
   Button states:
-    ♫Music:OFF
-    ♫Music:ON
+    ♫ Music:OFF
+    ♫ Music:ON
 
   Features:
     - Play / stop
     - Infinite looping
-    - Volume control
-    - Works with the existing CalcMAX button
+    - Background volume
+    - Uses the existing CalcMAX button
     - No dependency on script.js
   ==========================================================
   */
 
   const MUSIC_FILE = "Golden-Hour-chosic.com_.mp3";
+  const DEFAULT_VOLUME = 0.18;
 
   let audio = null;
-  let isPlaying = false;
+  let button = null;
 
   /*
   ----------------------------------------------------------
@@ -37,7 +38,11 @@
   */
 
   function getButton() {
-    return document.getElementById("musicBtn");
+    if (!button) {
+      button = document.getElementById("musicBtn");
+    }
+
+    return button;
   }
 
   /*
@@ -47,19 +52,30 @@
   */
 
   function updateButton() {
-    const button = getButton();
+    const b = getButton();
 
-    if (!button) {
+    if (!b) {
       return;
     }
 
-    if (isPlaying) {
-      button.textContent = "♫Music:ON";
-      button.classList.add("active");
-    } else {
-      button.textContent = "♫Music:OFF";
-      button.classList.remove("active");
-    }
+    const playing =
+      audio &&
+      !audio.paused &&
+      !audio.ended;
+
+    b.textContent = playing
+      ? "♫ Music:ON"
+      : "♫ Music:OFF";
+
+    b.classList.toggle(
+      "active",
+      playing
+    );
+
+    b.setAttribute(
+      "aria-pressed",
+      playing ? "true" : "false"
+    );
   }
 
   /*
@@ -69,61 +85,55 @@
   */
 
   function createAudio() {
-
     if (audio) {
       return audio;
     }
 
     audio = new Audio(MUSIC_FILE);
 
-    // Use the built-in loop support
     audio.loop = true;
-
-    // Background concentration volume.
-    audio.volume = 0.18;
-
     audio.preload = "auto";
+    audio.volume = DEFAULT_VOLUME;
 
-    // AUDIO STARTED
-    audio.addEventListener("play", () => {
-      isPlaying = true;
-      updateButton();
-    });
+    /*
+    Audio events keep the button synchronized with
+    the real player state.
+    */
 
-    // AUDIO PAUSED
-    audio.addEventListener("pause", () => {
-      // If the audio was paused but still at end, we treat it as stopped
-      isPlaying = false;
-      updateButton();
-    });
+    audio.addEventListener(
+      "play",
+      updateButton
+    );
 
-    // AUDIO ERROR
-    audio.addEventListener("error", () => {
-      isPlaying = false;
-      updateButton();
-      console.error("CalcMAX Music Error:", MUSIC_FILE, audio.error);
-    });
+    audio.addEventListener(
+      "playing",
+      updateButton
+    );
 
-    // Extra loop protection (in case some browsers/firewalls stop looping)
-    audio.addEventListener("ended", () => {
-      if (!isPlaying) {
-        return;
+    audio.addEventListener(
+      "pause",
+      updateButton
+    );
+
+    audio.addEventListener(
+      "error",
+      () => {
+        updateButton();
+
+        console.error(
+          "CalcMAX Music could not load:",
+          MUSIC_FILE,
+          audio.error
+        );
       }
-      try {
-        // Reset to start and try to play again
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      } catch (e) {
-        // ignore
-      }
-    });
+    );
 
     return audio;
   }
 
   /*
   ----------------------------------------------------------
-  PLAY MUSIC
+  PLAY
   ----------------------------------------------------------
   */
 
@@ -131,87 +141,160 @@
     const player = createAudio();
 
     try {
+      /*
+      If the player is already playing,
+      do nothing.
+      */
+
+      if (!player.paused) {
+        updateButton();
+        return;
+      }
+
       await player.play();
-      // If play() succeeds the 'play' event listener will set isPlaying and update the button,
-      // but set it here as well to cover browsers that resolve play() before the event fires.
-      isPlaying = true;
+
       updateButton();
+
     } catch (error) {
-      console.warn("CalcMAX Music could not start.", error);
+      updateButton();
+
+      console.warn(
+        "CalcMAX Music could not start.",
+        error
+      );
     }
   }
 
   /*
   ----------------------------------------------------------
-  STOP MUSIC
+  STOP
   ----------------------------------------------------------
   */
 
   function stopMusic() {
     if (!audio) {
+      updateButton();
       return;
     }
 
     audio.pause();
 
-    // Reset position so the next play starts from the beginning.
+    /*
+    Reset to the beginning so the next play starts
+    from the beginning.
+    */
+
     try {
       audio.currentTime = 0;
-    } catch (e) {
-      // Some browsers may throw if audio not ready; ignore.
+    } catch (error) {
+      // Safe to ignore if the media isn't ready yet.
     }
-
-    isPlaying = false;
 
     updateButton();
   }
 
   /*
   ----------------------------------------------------------
-  TOGGLE MUSIC
+  TOGGLE
   ----------------------------------------------------------
   */
 
   async function toggleMusic() {
-    if (isPlaying) {
-      stopMusic();
-    } else {
+    const player = createAudio();
+
+    if (player.paused) {
       await playMusic();
+    } else {
+      stopMusic();
     }
   }
 
   /*
   ----------------------------------------------------------
-  SETUP BUTTON
+  VOLUME
+  ----------------------------------------------------------
+  */
+
+  function setVolume(volume) {
+    const player = createAudio();
+
+    const value = Number(volume);
+
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+    player.volume = Math.max(
+      0,
+      Math.min(1, value)
+    );
+  }
+
+  /*
+  ----------------------------------------------------------
+  BUTTON SETUP
   ----------------------------------------------------------
   */
 
   function setupMusicButton() {
-    const button = getButton();
+    const b = getButton();
 
-    if (!button) {
-      console.error("CalcMAX Music: #musicBtn not found.");
+    if (!b) {
+      console.error(
+        "CalcMAX Music: #musicBtn was not found."
+      );
+
       return;
     }
 
-    // Prevent duplicate handlers if the script somehow gets loaded more than once.
-    if (button.dataset.musicReady === "true") {
+    /*
+    Prevent this file from attaching the same handler
+    multiple times.
+    */
+
+    if (
+      b.dataset.musicReady === "true"
+    ) {
+      updateButton();
       return;
     }
 
-    button.dataset.musicReady = "true";
+    b.dataset.musicReady = "true";
 
-    // Make sure the starting state is correct.
-    isPlaying = false;
+    /*
+    Initial state.
+    */
 
-    button.textContent = "♫Music:OFF";
-    button.classList.remove("active");
+    b.textContent = "♫ Music:OFF";
 
-    // THE BUTTON CLICK
-    button.addEventListener("click", toggleMusic);
+    b.classList.remove("active");
 
-    // Prepare audio without playing it.
+    b.setAttribute(
+      "aria-pressed",
+      "false"
+    );
+
+    /*
+    One clean button handler.
+    */
+
+    b.addEventListener(
+      "click",
+      async (event) => {
+        event.preventDefault();
+
+        await toggleMusic();
+      }
+    );
+
+    /*
+    Create the player now so the browser can preload
+    the music, but DON'T autoplay it.
+    */
+
     createAudio();
+
+    updateButton();
   }
 
   /*
@@ -222,30 +305,45 @@
 
   window.CalcMaxMusic = {
     play: playMusic,
+
     stop: stopMusic,
+
     toggle: toggleMusic,
-    isPlaying: () => isPlaying,
-    setVolume: (volume) => {
-      const player = createAudio();
-      let value = Number(volume);
-      if (!Number.isFinite(value)) {
-        return;
-      }
-      value = Math.max(0, Math.min(1, value));
-      player.volume = value;
+
+    setVolume: setVolume,
+
+    isPlaying: () => {
+      return !!(
+        audio &&
+        !audio.paused &&
+        !audio.ended
+      );
     }
   };
 
   /*
   ----------------------------------------------------------
-  START
+  STARTUP
   ----------------------------------------------------------
   */
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", setupMusicButton);
-  } else {
+  function init() {
     setupMusicButton();
+  }
+
+  if (
+    document.readyState ===
+    "loading"
+  ) {
+    document.addEventListener(
+      "DOMContentLoaded",
+      init,
+      {
+        once: true
+      }
+    );
+  } else {
+    init();
   }
 
 })();
