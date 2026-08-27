@@ -1,130 +1,124 @@
-document.addEventListener("DOMContentLoaded", function () {
+(() => {
+  "use strict";
 
-  const audio = document.getElementById("myAudio");
-  const musicBtn = document.getElementById("musicBtn");
+  const MUSIC_FILE = "Golden-Hour-chosic.com_.mp3";
 
-  if (!audio) {
-    console.error("CalcMAX: myAudio not found.");
-    return;
+  let clickCount = 0;
+  let audio = null;
+
+  function getButton() {
+    return document.getElementById("musicBtn");
   }
 
-  if (!musicBtn) {
-    console.error("CalcMAX: musicBtn not found.");
-    return;
+  function setupAudio() {
+    if (audio) return;
+
+    audio = new Audio(MUSIC_FILE);
+    audio.loop = true;
+    audio.volume = 0.18;
+    audio.preload = "auto";
   }
 
-  // Music settings
-  audio.loop = true;
-  audio.volume = 0.18;
+  async function updateMusic() {
+    const button = getButton();
 
-  // Starting state
-  musicBtn.textContent = "♫ Music:OFF";
-
-  musicBtn.addEventListener("click", async function () {
+    if (!button) return;
 
     /*
-    ----------------------------------------------------------
-    CHANGE THE BUTTON STATE
-    ----------------------------------------------------------
+      The BUTTON TEXT is the state.
     */
 
-    if (
-      musicBtn.textContent.trim() ===
-      "♫ Music:OFF"
-    ) {
+    if (button.textContent === "♫ Music:ON") {
 
-      musicBtn.textContent =
-        "♫ Music:ON";
-
-    } else {
-
-      musicBtn.textContent =
-        "♫ Music:OFF";
-
-    }
-
-    /*
-    ----------------------------------------------------------
-    MUSIC LOGIC
-    ----------------------------------------------------------
-
-    ON  = PLAY
-    OFF = STOP
-    */
-
-    const currentText =
-      musicBtn.textContent.trim();
-
-    if (
-      currentText ===
-      "♫ Music:ON"
-    ) {
+      setupAudio();
 
       try {
-
         await audio.play();
-
       } catch (error) {
-
-        console.error(
-          "CalcMAX music playback failed:",
+        console.warn(
+          "CalcMAX music could not start:",
           error
         );
-
-        // If playback fails, return button to OFF.
-        musicBtn.textContent =
-          "♫ Music:OFF";
       }
 
     } else if (
-      currentText ===
-      "♫ Music:OFF"
+      button.textContent === "♫ Music:OFF"
     ) {
 
-      audio.pause();
-      audio.currentTime = 0;
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    }
+  }
 
+  function setupButton() {
+    const button = getButton();
+
+    if (!button) {
+      console.error(
+        "CalcMAX: musicBtn not found."
+      );
+      return;
     }
 
-  });
+    /*
+      Start OFF.
+    */
+
+    button.textContent = "♫ Music:OFF";
+
+    /*
+      Every click increases the counter.
+    */
+
+    button.addEventListener("click", async () => {
+
+      clickCount++;
+
+      /*
+        ODD = ON
+        EVEN = OFF
+      */
+
+      if (clickCount % 2 === 1) {
+
+        button.textContent = "♫ Music:ON";
+
+      } else {
+
+        button.textContent = "♫ Music:OFF";
+
+      }
+
+      /*
+        The TEXT now decides what happens.
+      */
+
+      await updateMusic();
+    });
+
+    setupAudio();
+  }
 
   /*
-  ----------------------------------------------------------
-  KEEP BUTTON SYNCHRONIZED
-  ----------------------------------------------------------
+    Wait for the button to exist.
   */
 
-  audio.addEventListener("play", function () {
+  if (
+    document.readyState === "loading"
+  ) {
 
-    musicBtn.textContent =
-      "♫ Music:ON";
-
-  });
-
-  audio.addEventListener("pause", function () {
-
-    musicBtn.textContent =
-      "♫ Music:OFF";
-
-  });
-
-  /*
-  ----------------------------------------------------------
-  AUDIO ERROR
-  ----------------------------------------------------------
-  */
-
-  audio.addEventListener("error", function () {
-
-    console.error(
-      "CalcMAX could not load the music file:",
-      audio.src,
-      audio.error
+    document.addEventListener(
+      "DOMContentLoaded",
+      setupButton,
+      { once: true }
     );
 
-    musicBtn.textContent =
-      "♫ Music:OFF";
+  } else {
 
-  });
+    setupButton();
 
-});
+  }
+
+})();
