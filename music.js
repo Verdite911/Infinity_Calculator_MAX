@@ -1,143 +1,43 @@
 document.addEventListener("DOMContentLoaded", function () {
 
-  const musicBtn = document.getElementById("musicBtn");
+  const button = document.getElementById("musicBtn");
   const audio = document.getElementById("myAudio");
 
-  if (!musicBtn) {
-    console.error("CALCMAX MUSIC: musicBtn not found.");
+  if (!button || !audio) {
+    console.error("Music setup failed.");
     return;
   }
 
-  if (!audio) {
-    console.error("CALCMAX MUSIC: myAudio not found.");
-    return;
-  }
-
-  // Loop forever
   audio.loop = true;
-
-  // Background volume
   audio.volume = 0.18;
 
-  // Starting state
-  musicBtn.textContent = "♫ Music:OFF";
+  button.textContent = "♫ Music:OFF";
 
-  /*
-  ==========================================================
-  CLICK LOGIC
-  ==========================================================
-  */
+  button.addEventListener("click", function () {
 
-  musicBtn.addEventListener("click", function (event) {
+    if (button.textContent.trim() === "♫ Music:OFF") {
 
-    event.preventDefault();
-    event.stopPropagation();
-
-    /*
-      OFF -> ON
-      ON  -> OFF
-    */
-
-    if (
-      musicBtn.textContent.trim() ===
-      "♫ Music:OFF"
-    ) {
-
-      musicBtn.textContent =
-        "♫ Music:ON";
+      button.textContent = "♫ Music:ON";
 
     } else {
 
-      musicBtn.textContent =
-        "♫ Music:OFF";
+      button.textContent = "♫ Music:OFF";
 
     }
 
-    /*
-    ========================================================
-    USE THE NEW BUTTON TEXT
-    ========================================================
-    */
+    if (button.textContent.trim() === "♫ Music:ON") {
 
-    if (
-      musicBtn.textContent.trim() ===
-      "♫ Music:ON"
-    ) {
+      audio.play().catch(function (error) {
+        console.error("Music playback failed:", error);
+        button.textContent = "♫ Music:OFF";
+      });
 
-      console.log("CALCMAX MUSIC: PLAY");
-
-      audio.play()
-        .then(function () {
-
-          musicBtn.textContent =
-            "♫ Music:ON";
-
-        })
-        .catch(function (error) {
-
-          console.error(
-            "CALCMAX MUSIC PLAY ERROR:",
-            error
-          );
-
-          musicBtn.textContent =
-            "♫ Music:OFF";
-
-        });
-
-    }
-
-    else if (
-      musicBtn.textContent.trim() ===
-      "♫ Music:OFF"
-    ) {
-
-      console.log("CALCMAX MUSIC: STOP");
+    } else if (button.textContent.trim() === "♫ Music:OFF") {
 
       audio.pause();
-
       audio.currentTime = 0;
 
-      musicBtn.textContent =
-        "♫ Music:OFF";
-
     }
-
-  });
-
-  /*
-  ==========================================================
-  AUDIO EVENTS
-  ==========================================================
-  */
-
-  audio.addEventListener("play", function () {
-
-    musicBtn.textContent =
-      "♫ Music:ON";
-
-  });
-
-  audio.addEventListener("pause", function () {
-
-    musicBtn.textContent =
-      "♫ Music:OFF";
-
-  });
-
-  /*
-  ==========================================================
-  AUDIO ERROR
-  ==========================================================
-  */
-
-  audio.addEventListener("error", function () {
-
-    console.error(
-      "CALCMAX MUSIC FILE ERROR:",
-      audio.src,
-      audio.error
-    );
 
   });
 
