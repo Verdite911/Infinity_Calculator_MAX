@@ -13,8 +13,8 @@
     Golden-Hour-chosic.com_.mp3
 
   Button states:
-    ♫ Music:OFF
-    ♫ Music:ON
+    ♫Music:OFF
+    ♫Music:ON
 
   Features:
     - Play / stop
@@ -54,10 +54,10 @@
     }
 
     if (isPlaying) {
-      button.textContent = "♫ Music:ON";
+      button.textContent = "♫Music:ON";
       button.classList.add("active");
     } else {
-      button.textContent = "♫ Music:OFF";
+      button.textContent = "♫Music:OFF";
       button.classList.remove("active");
     }
   }
@@ -76,67 +76,46 @@
 
     audio = new Audio(MUSIC_FILE);
 
+    // Use the built-in loop support
     audio.loop = true;
 
-    /*
-      Background concentration volume.
-    */
+    // Background concentration volume.
     audio.volume = 0.18;
 
     audio.preload = "auto";
 
-    /*
-      AUDIO STARTED
-    */
+    // AUDIO STARTED
     audio.addEventListener("play", () => {
-
       isPlaying = true;
-
       updateButton();
-
     });
 
-    /*
-      AUDIO STOPPED
-    */
+    // AUDIO PAUSED
     audio.addEventListener("pause", () => {
-
+      // If the audio was paused but still at end, we treat it as stopped
       isPlaying = false;
-
       updateButton();
-
     });
 
-    /*
-      AUDIO ERROR
-    */
+    // AUDIO ERROR
     audio.addEventListener("error", () => {
-
       isPlaying = false;
-
       updateButton();
-
-      console.error(
-        "CalcMAX Music Error:",
-        MUSIC_FILE,
-        audio.error
-      );
-
+      console.error("CalcMAX Music Error:", MUSIC_FILE, audio.error);
     });
 
-    /*
-      Extra loop protection.
-    */
+    // Extra loop protection (in case some browsers/firewalls stop looping)
     audio.addEventListener("ended", () => {
-
       if (!isPlaying) {
         return;
       }
-
-      audio.currentTime = 0;
-
-      audio.play().catch(() => {});
-
+      try {
+        // Reset to start and try to play again
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } catch (e) {
+        // ignore
+      }
     });
 
     return audio;
@@ -149,24 +128,16 @@
   */
 
   async function playMusic() {
-
     const player = createAudio();
 
     try {
-
       await player.play();
-
+      // If play() succeeds the 'play' event listener will set isPlaying and update the button,
+      // but set it here as well to cover browsers that resolve play() before the event fires.
       isPlaying = true;
-
       updateButton();
-
     } catch (error) {
-
-      console.warn(
-        "CalcMAX Music could not start.",
-        error
-      );
-
+      console.warn("CalcMAX Music could not start.", error);
     }
   }
 
@@ -177,18 +148,18 @@
   */
 
   function stopMusic() {
-
     if (!audio) {
       return;
     }
 
     audio.pause();
 
-    /*
-      Reset position so the next play starts
-      from the beginning.
-    */
-    audio.currentTime = 0;
+    // Reset position so the next play starts from the beginning.
+    try {
+      audio.currentTime = 0;
+    } catch (e) {
+      // Some browsers may throw if audio not ready; ignore.
+    }
 
     isPlaying = false;
 
@@ -202,15 +173,10 @@
   */
 
   async function toggleMusic() {
-
     if (isPlaying) {
-
       stopMusic();
-
     } else {
-
       await playMusic();
-
     }
   }
 
@@ -221,51 +187,31 @@
   */
 
   function setupMusicButton() {
-
     const button = getButton();
 
     if (!button) {
-
-      console.error(
-        "CalcMAX Music: #musicBtn not found."
-      );
-
+      console.error("CalcMAX Music: #musicBtn not found.");
       return;
-
     }
 
-    /*
-      Prevent duplicate handlers if the script
-      somehow gets loaded more than once.
-    */
+    // Prevent duplicate handlers if the script somehow gets loaded more than once.
     if (button.dataset.musicReady === "true") {
       return;
     }
 
     button.dataset.musicReady = "true";
 
-    /*
-      Make sure the starting state is correct.
-    */
+    // Make sure the starting state is correct.
     isPlaying = false;
 
-    button.textContent = "♫ Music:OFF";
-
+    button.textContent = "♫Music:OFF";
     button.classList.remove("active");
 
-    /*
-      THE BUTTON CLICK
-    */
-    button.addEventListener(
-      "click",
-      toggleMusic
-    );
+    // THE BUTTON CLICK
+    button.addEventListener("click", toggleMusic);
 
-    /*
-      Prepare audio without playing it.
-    */
+    // Prepare audio without playing it.
     createAudio();
-
   }
 
   /*
@@ -275,34 +221,19 @@
   */
 
   window.CalcMaxMusic = {
-
     play: playMusic,
-
     stop: stopMusic,
-
     toggle: toggleMusic,
-
     isPlaying: () => isPlaying,
-
     setVolume: (volume) => {
-
       const player = createAudio();
-
       let value = Number(volume);
-
       if (!Number.isFinite(value)) {
         return;
       }
-
-      value = Math.max(
-        0,
-        Math.min(1, value)
-      );
-
+      value = Math.max(0, Math.min(1, value));
       player.volume = value;
-
     }
-
   };
 
   /*
@@ -311,20 +242,10 @@
   ----------------------------------------------------------
   */
 
-  if (
-    document.readyState ===
-    "loading"
-  ) {
-
-    document.addEventListener(
-      "DOMContentLoaded",
-      setupMusicButton
-    );
-
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setupMusicButton);
   } else {
-
     setupMusicButton();
-
   }
 
 })();
