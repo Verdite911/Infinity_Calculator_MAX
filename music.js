@@ -1,43 +1,41 @@
 document.addEventListener("DOMContentLoaded", function () {
 
-  const musicBtn =
-    document.getElementById("musicBtn");
-
-  const audio =
-    document.getElementById("myAudio");
+  const musicBtn = document.getElementById("musicBtn");
+  const audio = document.getElementById("myAudio");
 
   if (!musicBtn) {
-    console.error("CalcMAX: musicBtn not found.");
+    console.error("CALCMAX MUSIC: musicBtn not found.");
     return;
   }
 
   if (!audio) {
-    console.error("CalcMAX: myAudio not found.");
+    console.error("CALCMAX MUSIC: myAudio not found.");
     return;
   }
 
+  // Loop forever
   audio.loop = true;
-  audio.preload = "auto";
+
+  // Background volume
   audio.volume = 0.18;
 
-  /*
-  ==========================================================
-  INITIAL STATE
-  ==========================================================
-  */
-
+  // Starting state
   musicBtn.textContent = "♫ Music:OFF";
 
   /*
   ==========================================================
-  CLICK
+  CLICK LOGIC
   ==========================================================
   */
 
-  musicBtn.addEventListener("click", function () {
+  musicBtn.addEventListener("click", function (event) {
+
+    event.preventDefault();
+    event.stopPropagation();
 
     /*
-    First change the text.
+      OFF -> ON
+      ON  -> OFF
     */
 
     if (
@@ -56,13 +54,17 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     /*
-    Then use the NEW text to decide what to do.
+    ========================================================
+    USE THE NEW BUTTON TEXT
+    ========================================================
     */
 
     if (
       musicBtn.textContent.trim() ===
       "♫ Music:ON"
     ) {
+
+      console.log("CALCMAX MUSIC: PLAY");
 
       audio.play()
         .then(function () {
@@ -74,7 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
         .catch(function (error) {
 
           console.error(
-            "CalcMAX music playback failed:",
+            "CALCMAX MUSIC PLAY ERROR:",
             error
           );
 
@@ -89,6 +91,8 @@ document.addEventListener("DOMContentLoaded", function () {
       musicBtn.textContent.trim() ===
       "♫ Music:OFF"
     ) {
+
+      console.log("CALCMAX MUSIC: STOP");
 
       audio.pause();
 
@@ -107,25 +111,19 @@ document.addEventListener("DOMContentLoaded", function () {
   ==========================================================
   */
 
-  audio.addEventListener(
-    "play",
-    function () {
+  audio.addEventListener("play", function () {
 
-      musicBtn.textContent =
-        "♫ Music:ON";
+    musicBtn.textContent =
+      "♫ Music:ON";
 
-    }
-  );
+  });
 
-  audio.addEventListener(
-    "pause",
-    function () {
+  audio.addEventListener("pause", function () {
 
-      musicBtn.textContent =
-        "♫ Music:OFF";
+    musicBtn.textContent =
+      "♫ Music:OFF";
 
-    }
-  );
+  });
 
   /*
   ==========================================================
@@ -133,20 +131,14 @@ document.addEventListener("DOMContentLoaded", function () {
   ==========================================================
   */
 
-  audio.addEventListener(
-    "error",
-    function () {
+  audio.addEventListener("error", function () {
 
-      console.error(
-        "CalcMAX could not load the music file.",
-        audio.src,
-        audio.error
-      );
+    console.error(
+      "CALCMAX MUSIC FILE ERROR:",
+      audio.src,
+      audio.error
+    );
 
-      musicBtn.textContent =
-        "♫ Music:OFF";
-
-    }
-  );
+  });
 
 });
