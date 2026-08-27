@@ -1,124 +1,140 @@
-(() => {
-  "use strict";
+document.addEventListener("DOMContentLoaded", function () {
 
-  const MUSIC_FILE = "Golden-Hour-chosic.com_.mp3";
+  const musicBtn = document.getElementById("musicBtn");
+  const audio = document.getElementById("myAudio");
 
-  let clickCount = 0;
-  let audio = null;
-
-  function getButton() {
-    return document.getElementById("musicBtn");
+  if (!musicBtn) {
+    console.error("CalcMAX: musicBtn not found.");
+    return;
   }
 
-  function setupAudio() {
-    if (audio) return;
-
-    audio = new Audio(MUSIC_FILE);
-    audio.loop = true;
-    audio.volume = 0.18;
-    audio.preload = "auto";
+  if (!audio) {
+    console.error("CalcMAX: myAudio not found.");
+    return;
   }
 
-  async function updateMusic() {
-    const button = getButton();
+  // Make the music loop forever.
+  audio.loop = true;
 
-    if (!button) return;
+  // Background volume.
+  audio.volume = 0.18;
 
-    /*
-      The BUTTON TEXT is the state.
-    */
-
-    if (button.textContent === "♫ Music:ON") {
-
-      setupAudio();
-
-      try {
-        await audio.play();
-      } catch (error) {
-        console.warn(
-          "CalcMAX music could not start:",
-          error
-        );
-      }
-
-    } else if (
-      button.textContent === "♫ Music:OFF"
-    ) {
-
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
-      }
-    }
-  }
-
-  function setupButton() {
-    const button = getButton();
-
-    if (!button) {
-      console.error(
-        "CalcMAX: musicBtn not found."
-      );
-      return;
-    }
-
-    /*
-      Start OFF.
-    */
-
-    button.textContent = "♫ Music:OFF";
-
-    /*
-      Every click increases the counter.
-    */
-
-    button.addEventListener("click", async () => {
-
-      clickCount++;
-
-      /*
-        ODD = ON
-        EVEN = OFF
-      */
-
-      if (clickCount % 2 === 1) {
-
-        button.textContent = "♫ Music:ON";
-
-      } else {
-
-        button.textContent = "♫ Music:OFF";
-
-      }
-
-      /*
-        The TEXT now decides what happens.
-      */
-
-      await updateMusic();
-    });
-
-    setupAudio();
-  }
+  // Start OFF.
+  musicBtn.textContent = "♫ Music:OFF";
 
   /*
-    Wait for the button to exist.
+  ==========================================================
+  MUSIC BUTTON
+  ==========================================================
   */
 
-  if (
-    document.readyState === "loading"
-  ) {
+  musicBtn.addEventListener("click", function () {
 
-    document.addEventListener(
-      "DOMContentLoaded",
-      setupButton,
-      { once: true }
+    /*
+    ----------------------------------------------------------
+    FIRST CHANGE THE BUTTON TEXT
+    ----------------------------------------------------------
+
+    OFF -> ON
+    ON  -> OFF
+    */
+
+    if (
+      musicBtn.textContent.trim() ===
+      "♫ Music:OFF"
+    ) {
+
+      musicBtn.textContent =
+        "♫ Music:ON";
+
+    } else {
+
+      musicBtn.textContent =
+        "♫ Music:OFF";
+
+    }
+
+    /*
+    ----------------------------------------------------------
+    NOW CHECK THE NEW TEXT
+    ----------------------------------------------------------
+
+    ON  -> PLAY
+    OFF -> STOP
+    */
+
+    const currentText =
+      musicBtn.textContent.trim();
+
+    if (
+      currentText ===
+      "♫ Music:ON"
+    ) {
+
+      audio.play()
+        .then(function () {
+
+          musicBtn.textContent =
+            "♫ Music:ON";
+
+        })
+        .catch(function (error) {
+
+          console.error(
+            "CalcMAX music playback failed:",
+            error
+          );
+
+          musicBtn.textContent =
+            "♫ Music:OFF";
+
+        });
+
+    } else if (
+      currentText ===
+      "♫ Music:OFF"
+    ) {
+
+      audio.pause();
+
+      audio.currentTime = 0;
+
+      musicBtn.textContent =
+        "♫ Music:OFF";
+    }
+
+  });
+
+  /*
+  ==========================================================
+  AUDIO ELEMENT EVENTS
+  ==========================================================
+  */
+
+  audio.addEventListener("play", function () {
+
+    musicBtn.textContent =
+      "♫ Music:ON";
+
+  });
+
+  audio.addEventListener("pause", function () {
+
+    musicBtn.textContent =
+      "♫ Music:OFF";
+
+  });
+
+  audio.addEventListener("error", function () {
+
+    console.error(
+      "CalcMAX: Could not load Golden-Hour-chosic.com_.mp3",
+      audio.error
     );
 
-  } else {
+    musicBtn.textContent =
+      "♫ Music:OFF";
 
-    setupButton();
+  });
 
-  }
-
-})();
+});
