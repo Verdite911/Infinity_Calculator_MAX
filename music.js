@@ -1,66 +1,159 @@
-"use strict";
+(() => {
+  "use strict";
 
-const musicBtn = document.getElementById("musicBtn");
-const audio = document.getElementById("myAudio");
+  function setupMusic() {
+    const musicBtn = document.getElementById("musicBtn");
+    const audio = document.getElementById("myAudio");
 
-if (musicBtn && audio) {
+    if (!musicBtn) {
+      console.error("CALCMAX MUSIC: #musicBtn not found.");
+      return;
+    }
 
-  audio.loop = true;
-  audio.volume = 0.18;
+    if (!audio) {
+      console.error("CALCMAX MUSIC: #myAudio not found.");
+      return;
+    }
 
-  musicBtn.textContent = "♫ Music:OFF";
+    // Make sure the HTML audio element loops.
+    audio.loop = true;
 
-  musicBtn.onclick = function (event) {
+    // Quiet background volume.
+    audio.volume = 0.18;
 
-    event.preventDefault();
+    // Exact starting text.
+    musicBtn.textContent = "♫ Music:OFF";
 
     /*
-      Change button text first.
+    ==========================================================
+    CLICK LOGIC
+    ==========================================================
     */
 
-    if (musicBtn.textContent === "♫ Music:OFF") {
+    musicBtn.onclick = async function (event) {
 
+      event.preventDefault();
+      event.stopPropagation();
+
+      /*
+      First change the button text.
+
+      OFF -> ON
+      ON  -> OFF
+      */
+
+      if (musicBtn.textContent.trim() === "♫ Music:OFF") {
+
+        musicBtn.textContent = "♫ Music:ON";
+
+      } else {
+
+        musicBtn.textContent = "♫ Music:OFF";
+
+      }
+
+      /*
+      ========================================================
+      NOW CHECK THE NEW TEXT
+      ========================================================
+      */
+
+      if (musicBtn.textContent.trim() === "♫ Music:ON") {
+
+        try {
+
+          await audio.play();
+
+          // Keep the text ON after successful playback.
+          musicBtn.textContent = "♫ Music:ON";
+
+        } catch (error) {
+
+          console.error(
+            "CALCMAX MUSIC PLAY FAILED:",
+            error
+          );
+
+          musicBtn.textContent = "♫ Music:OFF";
+
+        }
+
+      }
+
+      else if (
+        musicBtn.textContent.trim() === "♫ Music:OFF"
+      ) {
+
+        audio.pause();
+
+        audio.currentTime = 0;
+
+        musicBtn.textContent = "♫ Music:OFF";
+
+      }
+    };
+
+    /*
+    ==========================================================
+    AUDIO EVENTS
+    ==========================================================
+    */
+
+    audio.addEventListener("play", function () {
       musicBtn.textContent = "♫ Music:ON";
+    });
 
-    } else {
+    audio.addEventListener("pause", function () {
+      /*
+        Don't immediately overwrite the button during
+        a user click that is stopping the music.
+      */
+      if (audio.currentTime === 0) {
+        musicBtn.textContent = "♫ Music:OFF";
+      }
+    });
+
+    audio.addEventListener("error", function () {
+
+      console.error(
+        "CALCMAX MUSIC FILE ERROR:",
+        audio.currentSrc,
+        audio.error
+      );
 
       musicBtn.textContent = "♫ Music:OFF";
-
-    }
+    });
 
     /*
-      Button text decides what happens.
+    ==========================================================
+    TEST THE FILE
+    ==========================================================
     */
 
-    if (musicBtn.textContent === "♫ Music:ON") {
+    console.log(
+      "CALCMAX MUSIC READY:",
+      audio.currentSrc || audio.src
+    );
+  }
 
-      audio.play().catch(function (error) {
+  /*
+  ==========================================================
+  WAIT FOR THE HTML
+  ==========================================================
+  */
 
-        console.error(
-          "Music playback failed:",
-          error
-        );
+  if (document.readyState === "loading") {
 
-        musicBtn.textContent =
-          "♫ Music:OFF";
+    document.addEventListener(
+      "DOMContentLoaded",
+      setupMusic,
+      { once: true }
+    );
 
-      });
+  } else {
 
-    }
+    setupMusic();
 
-    if (musicBtn.textContent === "♫ Music:OFF") {
+  }
 
-      audio.pause();
-      audio.currentTime = 0;
-
-    }
-
-  };
-
-} else {
-
-  console.error(
-    "CalcMAX Music: musicBtn or myAudio not found."
-  );
-
-}
+})();
