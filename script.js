@@ -2422,6 +2422,32 @@ function bindAllButtons(){
     try{await navigator.clipboard.writeText(lastScalarResult);statusEl.textContent=`Copied: ${lastScalarResult}`;}
     catch{statusEl.textContent="Clipboard permission was blocked.";}
   });
+    bindButton("musicBtn",()=>{
+    const b=document.getElementById("musicBtn");
+
+    if(!b)return;
+
+    if(b.textContent.trim()==="♫ Music:OFF"){
+      b.textContent="♫ Music:ON";
+    }else{
+      b.textContent="♫ Music:OFF";
+    }
+
+    if(b.textContent.trim()==="♫ Music:ON"){
+      if(window.CalcMaxMusic){
+        window.CalcMaxMusic.play();
+      }
+    }else{
+      if(window.CalcMaxMusic){
+        window.CalcMaxMusic.stop();
+      }
+    }
+
+    b.classList.toggle(
+      "active",
+      b.textContent.trim()==="♫ Music:ON"
+    );
+  });
 
   bindButton("helpBtn",()=>helpPanel.classList.toggle("show"));
   bindButton("historyBtn",()=>{closePanels();historyPanel.classList.add("show")});
