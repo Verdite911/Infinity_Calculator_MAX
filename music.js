@@ -5,35 +5,30 @@
 CALCMAX MUSIC ENGINE
 ==========================================================
 
-HTML audio element:
+The BUTTON is controlled by script.js.
+
+This file ONLY controls the HTML audio element:
 
 <audio
   id="myAudio"
   src="Golden-Hour-chosic.com_.mp3"
   preload="auto"
 ></audio>
-
-This file ONLY controls the audio.
-
-The Music button is controlled by script.js.
 ==========================================================
 */
 
 const calcMaxAudio =
   document.getElementById("myAudio");
 
-if (!calcMaxAudio) {
+if(!calcMaxAudio){
 
   console.error(
     "CalcMAX Music: #myAudio was not found."
   );
 
-} else {
+}else{
 
-  // Loop forever.
   calcMaxAudio.loop = true;
-
-  // Quiet concentration volume.
   calcMaxAudio.volume = 0.18;
 
 }
@@ -41,17 +36,17 @@ if (!calcMaxAudio) {
 
 /*
 ==========================================================
-PLAY MUSIC
+PLAY
 ==========================================================
 */
 
-function playCalcMaxMusic() {
+function playCalcMaxMusic(){
 
-  if (!calcMaxAudio) {
+  if(!calcMaxAudio){
     return;
   }
 
-  calcMaxAudio.play().catch(function (error) {
+  calcMaxAudio.play().catch(error=>{
 
     console.error(
       "CalcMAX Music playback failed:",
@@ -65,13 +60,13 @@ function playCalcMaxMusic() {
 
 /*
 ==========================================================
-STOP MUSIC
+STOP
 ==========================================================
 */
 
-function stopCalcMaxMusic() {
+function stopCalcMaxMusic(){
 
-  if (!calcMaxAudio) {
+  if(!calcMaxAudio){
     return;
   }
 
@@ -84,34 +79,7 @@ function stopCalcMaxMusic() {
 
 /*
 ==========================================================
-OPTIONAL VOLUME
-==========================================================
-*/
-
-function setCalcMaxMusicVolume(volume) {
-
-  if (!calcMaxAudio) {
-    return;
-  }
-
-  const value = Number(volume);
-
-  if (!Number.isFinite(value)) {
-    return;
-  }
-
-  calcMaxAudio.volume =
-    Math.max(
-      0,
-      Math.min(1, value)
-    );
-
-}
-
-
-/*
-==========================================================
-PUBLIC CONTROL
+PUBLIC API
 ==========================================================
 */
 
@@ -119,8 +87,6 @@ window.CalcMaxMusic = {
 
   play: playCalcMaxMusic,
 
-  stop: stopCalcMaxMusic,
-
-  setVolume: setCalcMaxMusicVolume
+  stop: stopCalcMaxMusic
 
 };
