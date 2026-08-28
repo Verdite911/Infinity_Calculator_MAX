@@ -1,74 +1,126 @@
-document.addEventListener("DOMContentLoaded", function () {
+"use strict";
 
-  const musicBtn =
-    document.getElementById("musicBtn");
+/*
+==========================================================
+CALCMAX MUSIC ENGINE
+==========================================================
 
-  const audio =
-    document.getElementById("myAudio");
+HTML audio element:
 
-  if (!musicBtn) {
-    console.error("CALCMAX MUSIC: musicBtn not found.");
+<audio
+  id="myAudio"
+  src="Golden-Hour-chosic.com_.mp3"
+  preload="auto"
+></audio>
+
+This file ONLY controls the audio.
+
+The Music button is controlled by script.js.
+==========================================================
+*/
+
+const calcMaxAudio =
+  document.getElementById("myAudio");
+
+if (!calcMaxAudio) {
+
+  console.error(
+    "CalcMAX Music: #myAudio was not found."
+  );
+
+} else {
+
+  // Loop forever.
+  calcMaxAudio.loop = true;
+
+  // Quiet concentration volume.
+  calcMaxAudio.volume = 0.18;
+
+}
+
+
+/*
+==========================================================
+PLAY MUSIC
+==========================================================
+*/
+
+function playCalcMaxMusic() {
+
+  if (!calcMaxAudio) {
     return;
   }
 
-  if (!audio) {
-    console.error("CALCMAX MUSIC: myAudio not found.");
-    return;
-  }
+  calcMaxAudio.play().catch(function (error) {
 
-  audio.loop = true;
-  audio.volume = 0.18;
-
-  musicBtn.textContent = "♫ Music:OFF";
-
-  musicBtn.addEventListener("click", function () {
-
-    if (
-      musicBtn.textContent.trim() ===
-      "♫ Music:OFF"
-    ) {
-
-      musicBtn.textContent =
-        "♫ Music:ON";
-
-    } else {
-
-      musicBtn.textContent =
-        "♫ Music:OFF";
-
-    }
-
-    if (
-      musicBtn.textContent.trim() ===
-      "♫ Music:ON"
-    ) {
-
-      audio.play()
-        .then(function () {
-          musicBtn.textContent =
-            "♫ Music:ON";
-        })
-        .catch(function (error) {
-
-          console.error(
-            "CALCMAX MUSIC PLAY FAILED:",
-            error
-          );
-
-          musicBtn.textContent =
-            "♫ Music:OFF";
-        });
-
-    } else if (
-      musicBtn.textContent.trim() ===
-      "♫ Music:OFF"
-    ) {
-
-      audio.pause();
-      audio.currentTime = 0;
-
-    }
+    console.error(
+      "CalcMAX Music playback failed:",
+      error
+    );
 
   });
 
-});
+}
+
+
+/*
+==========================================================
+STOP MUSIC
+==========================================================
+*/
+
+function stopCalcMaxMusic() {
+
+  if (!calcMaxAudio) {
+    return;
+  }
+
+  calcMaxAudio.pause();
+
+  calcMaxAudio.currentTime = 0;
+
+}
+
+
+/*
+==========================================================
+OPTIONAL VOLUME
+==========================================================
+*/
+
+function setCalcMaxMusicVolume(volume) {
+
+  if (!calcMaxAudio) {
+    return;
+  }
+
+  const value = Number(volume);
+
+  if (!Number.isFinite(value)) {
+    return;
+  }
+
+  calcMaxAudio.volume =
+    Math.max(
+      0,
+      Math.min(1, value)
+    );
+
+}
+
+
+/*
+==========================================================
+PUBLIC CONTROL
+==========================================================
+*/
+
+window.CalcMaxMusic = {
+
+  play: playCalcMaxMusic,
+
+  stop: stopCalcMaxMusic,
+
+  setVolume: setCalcMaxMusicVolume
+
+};
