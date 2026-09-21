@@ -1135,8 +1135,7 @@ if(geometryPoints.length>=2)finishGeometry();
     const r=Math.round(hue2rgb(p,q,h+1/3)*255),g=Math.round(hue2rgb(p,q,h)*255),b=Math.round(hue2rgb(p,q,h-1/3)*255);
     return "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
   }
-
-  function applyRowColor(color){
+function applyRowColor(color){
   if(!colorRow)return;
 
   color=String(color).trim();
@@ -1163,6 +1162,7 @@ if(geometryPoints.length>=2)finishGeometry();
   saveSession();
 }
 
+ 
   PRESET_COLORS.forEach(color=>{
   const b=document.createElement("button");
 
@@ -1173,15 +1173,21 @@ if(geometryPoints.length>=2)finishGeometry();
   b.title=color;
   b.setAttribute("aria-label",`Use ${color}`);
 
-  b.addEventListener("pointerdown",e=>{
-    e.preventDefault();
-    e.stopPropagation();
-
-    applyRowColor(b.dataset.color);
-  });
-
   presetColors.appendChild(b);
 });
+
+
+presetColors.addEventListener("pointerdown",e=>{
+  const button=e.target.closest(".preset-color");
+
+  if(!button)return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  applyRowColor(button.dataset.color);
+});
+
 
   customColorInput.addEventListener("input",()=>applyRowColor(customColorInput.value));
   colorClose.addEventListener("click",closeColorPicker);
