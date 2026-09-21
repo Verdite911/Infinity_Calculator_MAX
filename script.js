@@ -1146,16 +1146,24 @@ if(geometryPoints.length>=2)finishGeometry();
   }
 
   PRESET_COLORS.forEach(color=>{
-    const b=document.createElement("button");
-    b.type="button";
-    b.className="preset-color";
-    b.dataset.color=color;
-    b.style.background=color;
-    b.title=color;
-    b.setAttribute("aria-label",`Use ${color}`);
-    b.addEventListener("click",()=>applyRowColor(color));
-    presetColors.appendChild(b);
+  const b=document.createElement("button");
+
+  b.type="button";
+  b.className="preset-color";
+  b.dataset.color=color;
+  b.style.backgroundColor=color;
+  b.title=color;
+  b.setAttribute("aria-label",`Use ${color}`);
+
+  b.addEventListener("pointerdown",e=>{
+    e.preventDefault();
+    e.stopPropagation();
+
+    applyRowColor(b.dataset.color);
   });
+
+  presetColors.appendChild(b);
+});
 
   customColorInput.addEventListener("input",()=>applyRowColor(customColorInput.value));
   colorClose.addEventListener("click",closeColorPicker);
