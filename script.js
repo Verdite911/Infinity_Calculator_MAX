@@ -2585,14 +2585,3 @@ window.addEventListener("resize",()=>{
   draw();
 })();
 
-function openPointTool() {
-  document.getElementById("pointTool").style.display = "block";
-}
-
-function createPoint() {
-  const x = Number(document.getElementById("pointX").value);
-  const y = Number(document.getElementById("pointY").value);
-
-  document.getElementById("pointAnswer").textContent =
-    "Point P = (" + x + ", " + y + ")";
-}
