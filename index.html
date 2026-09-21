@@ -1436,12 +1436,29 @@
     }
 
     geometryPoints.push(p);
-    geometryInfo.textContent=
-      `Point ${geometryPoints.length}: (${p.x.toFixed(3)},${p.y.toFixed(3)})`;
 
-    if(geometryPoints.length>=2)finishGeometry();
-  }
+geometryInfo.textContent =
+  `Point ${geometryPoints.length}: (${p.x.toFixed(3)},${p.y.toFixed(3)})`;
 
+if (geometryMode === "point") {
+  createRow(`point(${p.x.toFixed(5)},${p.y.toFixed(5)})`);
+
+  geometryReadout.textContent =
+    `Point (${p.x.toFixed(3)}, ${p.y.toFixed(3)})`;
+
+  geometryPoints = [];
+  geometryMode = "off";
+
+  document.querySelectorAll(".geom-mode").forEach(
+    b => b.classList.remove("active")
+  );
+
+  queueDraw();
+  return;
+}
+
+if (geometryPoints.length >= 2) finishGeometry();
+}
 
   function finishGeometry(){
     if(geometryMode==="polygon"){
