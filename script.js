@@ -783,12 +783,35 @@
       return;
     }
 
-    geometryPoints.push(p);
-    geometryInfo.textContent=
-      `Point ${geometryPoints.length}: (${p.x.toFixed(3)},${p.y.toFixed(3)})`;
+   if(geometryMode==="point"){
+  const x=p.x;
+  const y=p.y;
 
-    if(geometryPoints.length>=2)finishGeometry();
-  }
+  createRow(`point(${x.toFixed(5)},${y.toFixed(5)})`);
+
+  geometryInfo.textContent=
+    `Point: (${x.toFixed(3)}, ${y.toFixed(3)})`;
+
+  geometryReadout.textContent=
+    `Point (${x.toFixed(3)}, ${y.toFixed(3)})`;
+
+  geometryMode="off";
+
+  document.querySelectorAll(".geom-mode").forEach(
+    b=>b.classList.remove("active")
+  );
+
+  queueDraw();
+  return;
+}
+
+geometryPoints.push(p);
+
+geometryInfo.textContent=
+  `Point ${geometryPoints.length}: (${p.x.toFixed(3)},${p.y.toFixed(3)})`;
+
+if(geometryPoints.length>=2)finishGeometry();
+}
 
 
   function finishGeometry(){
