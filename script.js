@@ -1137,13 +1137,31 @@ if(geometryPoints.length>=2)finishGeometry();
   }
 
   function applyRowColor(color){
-    if(!colorRow)return;
-    colorRow.color=color;
-    colorRow.node.querySelector(".swatch").style.background=color;
-    customColorInput.value=toHexColor(color);
-    presetColors.querySelectorAll(".preset-color").forEach(b=>b.classList.toggle("selected",b.dataset.color.toLowerCase()===customColorInput.value.toLowerCase()));
-    queueDraw();
+  if(!colorRow)return;
+
+  color=String(color).trim();
+
+  colorRow.color=color;
+
+  const swatch=colorRow.node.querySelector(".swatch");
+
+  if(swatch){
+    swatch.style.backgroundColor=color;
   }
+
+  customColorInput.value=toHexColor(color);
+
+  presetColors.querySelectorAll(".preset-color").forEach(b=>{
+    b.classList.toggle(
+      "selected",
+      b.dataset.color.toLowerCase()===
+      color.toLowerCase()
+    );
+  });
+
+  queueDraw();
+  saveSession();
+}
 
   PRESET_COLORS.forEach(color=>{
   const b=document.createElement("button");
