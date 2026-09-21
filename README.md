@@ -18,10 +18,6 @@ HTML, CSS and JavaScript.
 - Exact answers
 - Interactive geometry
 
-## How to run
-
-Open index.html in a browser.
-
 ## Libraries
 - Math.js
 - Nerdamer
