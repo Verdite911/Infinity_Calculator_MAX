@@ -1299,11 +1299,13 @@ if(geometryPoints.length>=2)finishGeometry();
     return row;
   }
 
-  function queueDraw(){
-    if(drawQueued)return;
-    drawQueued=true;
-    requestAnimationFrame(()=>{drawQueued=false;draw();});
+ function queueDraw(){
+  if(window.CalcMaxPerformance){
+    CalcMaxPerformance.requestDraw(draw);
+  }else{
+    requestAnimationFrame(draw);
   }
+}
 
   // ---------- Desmos-style letter variables ----------
   const KEEP_WORDS = new Set([
