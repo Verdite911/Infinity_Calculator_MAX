@@ -1369,13 +1369,14 @@
     });
 
     const messages={
-      off:"Geometry tool is off.",
-      points:"2 Points: click two points A and B.",
-      segment:"Segment: click two endpoints.",
-      circle:"Circle: click center, then a point on the circumference.",
-      rectangle:"Rectangle: click four corners. Click the first corner again to close.",
-      polygon:"Polygon: click vertices. Click the first vertex again to close."
-    };
+  off:"Geometry tool is off.",
+  point:"Point: click anywhere on the graph.",
+  points:"2 Points: click two points A and B.",
+  segment:"Segment: click two endpoints.",
+  circle:"Circle: click center, then a point on the circumference.",
+  rectangle:"Rectangle: click four corners. Click the first corner again to close.",
+  polygon:"Polygon: click vertices. Click the first vertex again to close."
+};
 
     geometryInfo.textContent=messages[mode]||"Choose a geometry tool.";
     geometryReadout.textContent="";
