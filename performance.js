@@ -1,24 +1,11 @@
 /* ==========================================================
-   CalcMAX Performance SAFE
+   CalcMAX Performance SAFE 2.0
 
-   FIXED:
-   - Pending graph draws can no longer get stuck.
-   - Scrolling uses a lower FPS, but NEVER drops the final draw.
-   - A guaranteed trailing draw happens after scrolling stops.
-   - Multiple rapid draw requests are safely combined.
-   - Plotly graph gets a safe resize after scrolling ends.
-
-   IMPORTANT:
-   - Does NOT handle expression deletion.
-   - Does NOT handle the Clear button.
-   - Does NOT call Plotly.purge().
-   - Does NOT replace Plotly.newPlot(), react(), or animate().
-   - Does NOT replace queueDraw() or draw().
-
-   Load BEFORE script.js:
-
-     <script src="performance.js"></script>
-     <script src="script.js"></script>
+   - One graph draw at a time
+   - Never drops a redraw
+   - Does NOT throttle while scrolling
+   - Does NOT resize during scrolling
+   - Safe with async Plotly.react()
    ========================================================== */
 
 (() => {
@@ -28,152 +15,79 @@
 
   const state = {
     frameId: 0,
-    throttleTimer: 0,
-    resizeTimer: 0,
-    scrollTimer: 0,
-
-    scrolling: false,
-
-    lastScheduledDraw: 0,
-
-    normalFPS: 60,
-    scrollFPS: 30,
-
-    pendingDraw: null
+    running: false,
+    pendingDraw: null,
+    resizeTimer: 0
   };
 
 
-  /* ==========================================================
-     DRAW SCHEDULER
-     ========================================================== */
+  /* -------------------- Draw scheduler -------------------- */
 
-  function runPendingDraw() {
+  function scheduleFrame() {
     if (state.frameId) return;
+    if (state.running) return;
     if (!state.pendingDraw) return;
 
-    state.frameId = requestAnimationFrame(() => {
-      state.frameId = 0;
-
-      const callback = state.pendingDraw;
-      state.pendingDraw = null;
-
-      if (!callback) return;
-
-      state.lastScheduledDraw = performance.now();
-
-      try {
-        callback();
-      } catch (error) {
-        console.error(
-          "CalcMAX performance draw failed:",
-          error
-        );
-      }
-
-      /*
-         IMPORTANT:
-
-         If another draw request appeared while this draw
-         was happening, schedule it too.
-
-         This prevents graph changes from getting lost.
-      */
-      if (state.pendingDraw) {
-        schedulePendingDraw();
-      }
-    });
+    state.frameId = requestAnimationFrame(runDraw);
   }
 
 
-  function schedulePendingDraw(force = false) {
+  async function runDraw() {
+    state.frameId = 0;
+
+    if (state.running) return;
     if (!state.pendingDraw) return;
 
-    /*
-       A frame is already waiting.
+    const callback = state.pendingDraw;
+    state.pendingDraw = null;
 
-       It will use the newest pending callback,
-       so nothing else is needed.
-    */
-    if (state.frameId) return;
+    state.running = true;
 
+    try {
+      /*
+        IMPORTANT:
 
-    /*
-       If we're forcing a final draw after scrolling,
-       remove any old throttle timer and draw ASAP.
-    */
-    if (force) {
-      if (state.throttleTimer) {
-        clearTimeout(state.throttleTimer);
-        state.throttleTimer = 0;
+        draw() is async because Plotly.react() is async.
+
+        We WAIT for it to completely finish before
+        allowing another draw.
+      */
+      await callback();
+
+    } catch (error) {
+
+      console.error(
+        "CalcMAX graph draw failed:",
+        error
+      );
+
+    } finally {
+
+      state.running = false;
+
+      /*
+        If anything changed while Plotly was drawing,
+        render the newest state now.
+      */
+      if (state.pendingDraw) {
+        scheduleFrame();
       }
-
-      runPendingDraw();
-      return;
     }
-
-
-    /*
-       If a throttle timer already exists,
-       DO NOT create another one.
-
-       The pending callback has already been updated.
-    */
-    if (state.throttleTimer) return;
-
-
-    const now = performance.now();
-
-    const fps = state.scrolling
-      ? state.scrollFPS
-      : state.normalFPS;
-
-    const minimumInterval = 1000 / fps;
-
-    const elapsed =
-      now - state.lastScheduledDraw;
-
-    const wait =
-      Math.max(0, minimumInterval - elapsed);
-
-
-    if (wait <= 0) {
-      runPendingDraw();
-      return;
-    }
-
-
-    /*
-       THIS IS THE IMPORTANT FIX.
-
-       The old performance.js simply returned here.
-
-       That meant a draw could remain in pendingDraw forever.
-
-       Now we schedule a timer so the draw is guaranteed
-       to happen once the FPS interval has passed.
-    */
-    state.throttleTimer = setTimeout(() => {
-      state.throttleTimer = 0;
-
-      runPendingDraw();
-    }, wait);
   }
 
 
   function requestDraw(callback) {
-    if (typeof callback !== "function") {
-      return;
-    }
+    if (typeof callback !== "function") return;
 
     /*
-       Keep only the newest draw.
+      Replace old pending draws with the newest one.
 
-       This is safe because draw() redraws the complete
-       current calculator state.
+      draw() rebuilds the entire graph anyway,
+      so only the latest state matters.
     */
     state.pendingDraw = callback;
 
-    schedulePendingDraw();
+    scheduleFrame();
   }
 
 
@@ -183,116 +97,22 @@
       state.frameId = 0;
     }
 
-    if (state.throttleTimer) {
-      clearTimeout(state.throttleTimer);
-      state.throttleTimer = 0;
-    }
-
     state.pendingDraw = null;
   }
 
 
-
-  /* ==========================================================
-     SCROLL DETECTION
-     ========================================================== */
-
-  function markScrolling() {
-    state.scrolling = true;
-
-    clearTimeout(state.scrollTimer);
-
-    state.scrollTimer = setTimeout(() => {
-      state.scrollTimer = 0;
-      state.scrolling = false;
-
-      /*
-         GUARANTEED FINAL DRAW.
-
-         Even if many graph changes happened during scrolling,
-         the newest state is rendered immediately when scrolling
-         finishes.
-      */
-      if (state.pendingDraw) {
-        schedulePendingDraw(true);
-      }
-
-      /*
-         Plotly occasionally needs its dimensions refreshed
-         after browser scrolling/layout movement.
-      */
-      scheduleGraphResize();
-
-    }, 120);
-  }
-
-
-  window.addEventListener(
-    "scroll",
-    markScrolling,
-    { passive: true }
-  );
-
-  window.addEventListener(
-    "wheel",
-    markScrolling,
-    { passive: true }
-  );
-
-  window.addEventListener(
-    "touchmove",
-    markScrolling,
-    { passive: true }
-  );
-
-
-
-  /* ==========================================================
-     RESIZE HELPERS
-     ========================================================== */
-
-  function scheduleResize(callback) {
-    if (typeof callback !== "function") {
-      return;
-    }
-
-    clearTimeout(state.resizeTimer);
-
-    state.resizeTimer = setTimeout(() => {
-      state.resizeTimer = 0;
-
-      requestAnimationFrame(() => {
-        try {
-          callback();
-        } catch (error) {
-          console.error(
-            "CalcMAX resize callback failed:",
-            error
-          );
-        }
-      });
-
-    }, 100);
-  }
-
+  /* -------------------- Resize -------------------- */
 
   function resizeGraph() {
-    const graph =
-      document.getElementById("graph");
+    const graph = document.getElementById("graph");
 
     if (
       !graph ||
+      !graph.isConnected ||
       !window.Plotly ||
       !Plotly.Plots ||
       typeof Plotly.Plots.resize !== "function"
     ) {
-      return;
-    }
-
-    /*
-       Don't resize an unmounted graph.
-    */
-    if (!graph.isConnected) {
       return;
     }
 
@@ -308,10 +128,21 @@
 
 
   function scheduleGraphResize() {
-    scheduleResize(resizeGraph);
+    clearTimeout(state.resizeTimer);
+
+    state.resizeTimer = setTimeout(() => {
+      state.resizeTimer = 0;
+
+      requestAnimationFrame(resizeGraph);
+    }, 100);
   }
 
 
+  /*
+    ONLY resize when the actual browser window changes size.
+
+    DO NOT resize when scrolling.
+  */
   window.addEventListener(
     "resize",
     scheduleGraphResize,
@@ -319,105 +150,64 @@
   );
 
 
+  /* -------------------- Tab restore -------------------- */
 
-  /* ==========================================================
-     TAB / WINDOW RESTORE
-     ========================================================== */
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
 
-  /*
-     Browsers may pause requestAnimationFrame when the tab
-     becomes hidden.
-
-     If the user comes back while a draw is pending,
-     force that graph draw to happen.
-  */
-  document.addEventListener(
-    "visibilitychange",
-    () => {
-      if (
-        document.visibilityState === "visible" &&
-        state.pendingDraw
-      ) {
-        schedulePendingDraw(true);
-      }
+    if (state.pendingDraw) {
+      scheduleFrame();
     }
-  );
+
+    scheduleGraphResize();
+  });
 
 
-  window.addEventListener(
-    "pageshow",
-    () => {
-      if (state.pendingDraw) {
-        schedulePendingDraw(true);
-      }
-
-      scheduleGraphResize();
+  window.addEventListener("pageshow", () => {
+    if (state.pendingDraw) {
+      scheduleFrame();
     }
-  );
+
+    scheduleGraphResize();
+  });
 
 
-
-  /* ==========================================================
-     ADAPTIVE SAMPLE COUNT
-     ========================================================== */
+  /* -------------------- Sample helper -------------------- */
 
   function smartSampleCount(base = 1200) {
-    const width =
-      window.innerWidth || 1200;
-
-    const maximum = Math.max(
-      400,
-      Math.round(width * 1.5)
-    );
+    const width = window.innerWidth || 1200;
 
     return Math.min(
       base,
-      maximum
+      Math.max(
+        400,
+        Math.round(width * 1.5)
+      )
     );
   }
 
 
-
-  /* ==========================================================
-     PUBLIC API
-     ========================================================== */
+  /* -------------------- Public API -------------------- */
 
   window.CalcMaxPerformance = {
-    version: "SAFE-1.1",
+    version: "SAFE-2.0",
 
     requestDraw,
     schedule: requestDraw,
-
     cancelDraw,
 
     resize: resizeGraph,
-    scheduleResize,
+    scheduleResize: scheduleGraphResize,
     scheduleGraphResize,
 
     smartSampleCount,
 
-    isScrolling: () =>
-      state.scrolling,
-
-    getFrameRate: () =>
-      state.scrolling
-        ? state.scrollFPS
-        : state.normalFPS,
+    isDrawing: () => state.running,
 
     getState: () => ({
-      scrolling: state.scrolling,
-
-      normalFPS: state.normalFPS,
-      scrollFPS: state.scrollFPS,
-
-      frameQueued:
-        Boolean(state.frameId),
-
-      throttleQueued:
-        Boolean(state.throttleTimer),
-
-      drawPending:
-        Boolean(state.pendingDraw)
+      drawing: state.running,
+      frameQueued: Boolean(state.frameId),
+      drawPending: Boolean(state.pendingDraw)
     })
   };
 
