@@ -942,20 +942,19 @@ function startPointDrag(ev){
     }
   });
 
-  if(nearest){
-    dragPointState={
-      row:nearest.row,
-      x:nearest.x,
-      y:nearest.y,
+  if(!nearest)return false;
 
-      // lock the CURRENT point color
-      color:nearest.row.color
-    };
+  dragPointState={
+    row:nearest.row,
+    color:nearest.row.color
+  };
 
-    return true;
+  // Cancel any redraw that hasn't started yet.
+  if(window.CalcMaxPerformance){
+    CalcMaxPerformance.cancelDraw();
   }
 
-  return false;
+  return true;
 }
 
 
@@ -970,24 +969,70 @@ function movePointDrag(ev){
   if(!p)return;
 
   const row=dragPointState.row;
+  const color=dragPointState.color;
 
-  // only change the coordinates
+  // Update the actual expression.
   row.input.value=
     `point(${p.x.toFixed(5)},${p.y.toFixed(5)})`;
 
-  // KEEP the exact color the point had before dragging
-  row.color=dragPointState.color;
+  // Make absolutely sure the row keeps its chosen color.
+  row.color=color;
 
   const swatch=row.node.querySelector(".swatch");
 
   if(swatch){
-    swatch.style.backgroundColor=
-      dragPointState.color;
+    swatch.style.backgroundColor=color;
   }
 
-  queueDraw();
+  // IMPORTANT:
+  // Move the existing Plotly point instead of rebuilding the whole graph.
+  const graph=document.getElementById("graph");
+
+  if(
+    graph &&
+    Array.isArray(graph.data) &&
+    typeof Plotly!=="undefined"
+  ){
+    graph.data.forEach((trace,i)=>{
+      if(trace?.meta?.calcmaxRowId===row.id){
+
+        Plotly.restyle(
+          graph,
+          {
+            x:[[p.x]],
+            y:[[p.y]],
+            "marker.color":color
+          },
+          [i]
+        );
+
+      }
+    });
+  }
 }
 
+
+function endPointDrag(){
+  if(!dragPointState)return;
+
+  const row=dragPointState.row;
+  const color=dragPointState.color;
+
+  // Preserve color once more before final redraw.
+  row.color=color;
+
+  const swatch=row.node.querySelector(".swatch");
+
+  if(swatch){
+    swatch.style.backgroundColor=color;
+  }
+
+  dragPointState=null;
+
+  // ONE full redraw after dragging is finished.
+  queueDraw();
+  saveSession();
+}
 
 function endPointDrag(){
   if(!dragPointState)return;
