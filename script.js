@@ -921,20 +921,82 @@ if(geometryPoints.length>=2)finishGeometry();
     return out;
   }
 
-  function startPointDrag(ev){
-    if(geometryMode!=="off"||ev.button!==0)return false;
-    let nearest=null,best=15;
-    getPointRows().forEach(p=>{const px=dataToPixel(p.x,p.y);if(!px)return;const d=Math.hypot(ev.clientX-px.x,ev.clientY-px.y);if(d<best){best=d;nearest=p;}});
-    if(nearest){dragPointState=nearest;return true;}return false;
+function startPointDrag(ev){
+  if(geometryMode!=="off" || ev.button!==0)return false;
+
+  let nearest=null;
+  let best=15;
+
+  getPointRows().forEach(p=>{
+    const px=dataToPixel(p.x,p.y);
+    if(!px)return;
+
+    const d=Math.hypot(
+      ev.clientX-px.x,
+      ev.clientY-px.y
+    );
+
+    if(d<best){
+      best=d;
+      nearest=p;
+    }
+  });
+
+  if(nearest){
+    dragPointState={
+      row:nearest.row,
+      x:nearest.x,
+      y:nearest.y,
+
+      // lock the CURRENT point color
+      color:nearest.row.color
+    };
+
+    return true;
   }
 
-  function movePointDrag(ev){
-    if(!dragPointState)return;
-    const p=graphPixelToData(ev.clientX,ev.clientY);if(!p)return;
-    dragPointState.row.input.value=`point(${p.x.toFixed(5)},${p.y.toFixed(5)})`;queueDraw();
+  return false;
+}
+
+
+function movePointDrag(ev){
+  if(!dragPointState)return;
+
+  const p=graphPixelToData(
+    ev.clientX,
+    ev.clientY
+  );
+
+  if(!p)return;
+
+  const row=dragPointState.row;
+
+  // only change the coordinates
+  row.input.value=
+    `point(${p.x.toFixed(5)},${p.y.toFixed(5)})`;
+
+  // KEEP the exact color the point had before dragging
+  row.color=dragPointState.color;
+
+  const swatch=row.node.querySelector(".swatch");
+
+  if(swatch){
+    swatch.style.backgroundColor=
+      dragPointState.color;
   }
 
-  function endPointDrag(){dragPointState=null;}
+  queueDraw();
+}
+
+
+function endPointDrag(){
+  if(!dragPointState)return;
+
+  // save new coordinates + same color
+  saveSession();
+
+  dragPointState=null;
+}
 
   function buildBranchSelect(){
     branchSelect.innerHTML="";
